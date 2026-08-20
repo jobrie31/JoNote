@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ✅ Users: admin = tout, user = son doc
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Trailers: admin = tout, non-admin = seulement ownerUid == auth.uid
+    match /trailers/{trailerId} {
+      // non-admin ne peut pas lister tous les trailers
+      allow list: if isAdmin();
+
+      allow get: if signedIn() && (
+        isAdmin() ||
+        resource.data.ownerUid == request.auth.uid
+      );
+
+      allow create: if signedIn() && (
+        isAdmin() ||
+        request.resource.data.ownerUid == request.auth.uid
+      );
+
+      allow update, delete: if signedIn() && (
+        isAdmin() ||
+        resource.data.ownerUid == request.auth.uid
+      );
+
+      // Sous-collections: admin = tout, sinon seulement owner du trailer
+      match /{subpath=**} {
+        allow read, write: if signedIn() && (
+          isAdmin() ||
+          get(/databases/$(database)/documents/trailers/$(trailerId)).data.ownerUid == request.auth.uid
+        );
+      }
+    }
+
+    // ✅ Employes:
+    // - Permettre le lookup register AVANT auth (limit(1) seulement)
+    // - Ensuite, lecture/écriture selon admin ou activation "self"
+    match /employes/{id} {
+
+      // REGISTER lookup: getDocs(query(... limit(1))) quand request.auth == null
+      // Firestore rules ne peuvent pas vérifier le where(emailLower == ...),
+      // donc on limite strictement à 1 doc max.
+      allow list: if request.auth == null && request.query.limit <= 1;
+
+      // Lecture normale: admin ou le user qui est le uid du doc
+      allow get: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+
+      // Création: admin seulement (ajout employé)
+      allow create: if isAdmin();
+
+      // Update:
+      // - admin peut tout
+      // - user peut seulement activer SON doc (uid null -> uid = lui) si emailLower match son token email
+      allow update: if
+        isAdmin()
+        ||
+        (
+          signedIn()
+          && resource.data.emailLower == request.auth.token.email.lower()
+          && (resource.data.uid == null)
+          && request.resource.data.uid == request.auth.uid
+        );
+
+      // Suppression: admin seulement
+      allow delete: if isAdmin();
+    }
+
+    // ✅ Catégories globales (si tu utilises la collection "categories")
+    match /categories/{id} {
+      allow read, write: if signedIn();
+    }
+
+    // ✅ Banque d’équipements globale
+    match /equipements/{id} {
+      allow read, write: if signedIn();
+    }
+
+    // Default: auth required
+    match /{document=**} {
+      allow read, write: if signedIn();
+    }
+  }
+}
