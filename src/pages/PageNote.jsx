@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,17 +12,23 @@ import BlocLien from "../components/BlocLien";
 
 import {
   chargerBlocs,
+  chargerTachesProjet,
   creerBlocTexte,
-  creerBlocChecklist,
+  creerTacheProjet,
   creerBlocManuscrit,
   creerBlocLien,
   modifierBlocTexte,
   modifierBlocChecklist,
   modifierBlocManuscrit,
   modifierBlocLien,
+  modifierTacheProjet,
+  supprimerTacheProjet,
   modifierOrdreBlocs,
   modifierTitreNote,
+  modifierCalendrierNote,
+  supprimerNoteEtBlocs,
   supprimerBloc,
+  extraireReferences,
 } from "../utils/firestoreJoNote";
 
 function PageNote({
@@ -29,15 +36,47 @@ function PageNote({
   note,
   onRetour,
 }) {
-  const [titre, setTitre] = useState(
+  const [
+    titre,
+    setTitre,
+  ] = useState(
     note?.titre || ""
   );
 
-  const [blocs, setBlocs] =
-    useState([]);
+  const [
+    dansCalendrier,
+    setDansCalendrier,
+  ] = useState(
+    note?.dansCalendrier ===
+      true
+  );
 
-  const [chargement, setChargement] =
-    useState(true);
+  const [
+    dateCalendrier,
+    setDateCalendrier,
+  ] = useState(
+    note?.dateCalendrier || ""
+  );
+
+  const [
+    blocs,
+    setBlocs,
+  ] = useState([]);
+
+  const [
+    tachesLiees,
+    setTachesLiees,
+  ] = useState([]);
+
+  const [
+    chargement,
+    setChargement,
+  ] = useState(true);
+
+  const [
+    suppressionEnCours,
+    setSuppressionEnCours,
+  ] = useState(false);
 
   const [
     blocGlisseId,
@@ -52,9 +91,28 @@ function PageNote({
   const timerTitreRef =
     useRef(null);
 
+  const referencesTitre =
+    useMemo(
+      () =>
+        extraireReferences(
+          titre
+        ),
+      [titre]
+    );
+
   useEffect(() => {
     setTitre(
       note?.titre || ""
+    );
+
+    setDansCalendrier(
+      note?.dansCalendrier ===
+        true
+    );
+
+    setDateCalendrier(
+      note?.dateCalendrier ||
+        ""
     );
   }, [note]);
 
@@ -70,28 +128,44 @@ function PageNote({
     };
   }, []);
 
-  const loadBlocs = async () => {
-    try {
-      setChargement(true);
+  const loadBlocs =
+    async () => {
+      try {
+        setChargement(true);
 
-      const blocsFirebase =
-        await chargerBlocs(
-          projet.id,
-          note.id
+        const [
+          blocsFirebase,
+          tachesFirebase,
+        ] = await Promise.all([
+          chargerBlocs(
+            projet.id,
+            note.id
+          ),
+          chargerTachesProjet(
+            projet.id
+          ),
+        ]);
+
+        setBlocs(
+          blocsFirebase
         );
 
-      setBlocs(
-        blocsFirebase
-      );
-    } catch (error) {
-      console.error(
-        "Erreur chargement blocs :",
-        error
-      );
-    } finally {
-      setChargement(false);
-    }
-  };
+        setTachesLiees(
+          tachesFirebase.filter(
+            (tache) =>
+              tache.noteId ===
+              note.id
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Erreur chargement note :",
+          error
+        );
+      } finally {
+        setChargement(false);
+      }
+    };
 
   useEffect(() => {
     if (!note?.id) {
@@ -108,7 +182,8 @@ function PageNote({
     return (
       <div
         style={{
-          padding: "40px",
+          padding:
+            "40px",
         }}
       >
         <p>
@@ -165,6 +240,119 @@ function PageNote({
       );
   };
 
+  const handleSupprimerNote =
+    async () => {
+      const nomNote =
+        titre.trim() ||
+        "Sans titre";
+
+      const confirmation =
+        window.confirm(
+          `Supprimer définitivement la note « ${nomNote} » ?\n\nTous les textes, checklists, dessins et liens de cette note seront aussi supprimés.`
+        );
+
+      if (
+        !confirmation
+      ) {
+        return;
+      }
+
+      try {
+        setSuppressionEnCours(
+          true
+        );
+
+        if (
+          timerTitreRef.current
+        ) {
+          clearTimeout(
+            timerTitreRef.current
+          );
+        }
+
+        await Promise.all(
+          tachesLiees.map(
+            (tache) =>
+              modifierTacheProjet(
+                projet.id,
+                tache.id,
+                {
+                  noteId: "",
+                }
+              )
+          )
+        );
+
+        await supprimerNoteEtBlocs(
+          projet.id,
+          note.id
+        );
+
+        onRetour?.();
+      } catch (error) {
+        console.error(
+          "Erreur suppression note :",
+          error
+        );
+
+        window.alert(
+          "La note n'a pas pu être supprimée."
+        );
+      } finally {
+        setSuppressionEnCours(
+          false
+        );
+      }
+    };
+
+  const handleCalendrierChange =
+    async (e) => {
+      const valeur =
+        e.target.checked;
+
+      setDansCalendrier(
+        valeur
+      );
+
+      try {
+        await modifierCalendrierNote(
+          projet.id,
+          note.id,
+          valeur,
+          dateCalendrier
+        );
+      } catch (error) {
+        console.error(
+          "Erreur sauvegarde calendrier :",
+          error
+        );
+      }
+    };
+
+  const handleDateCalendrierChange =
+    async (e) => {
+      const valeur =
+        e.target.value;
+
+      setDateCalendrier(
+        valeur
+      );
+
+      try {
+        await modifierCalendrierNote(
+          projet.id,
+          note.id,
+          dansCalendrier,
+          valeur
+        );
+      } catch (error) {
+        console.error(
+          "Erreur sauvegarde date calendrier :",
+          error
+        );
+      }
+    };
+
   const handleAjouterTexte =
     async () => {
       try {
@@ -185,15 +373,49 @@ function PageNote({
   const handleAjouterChecklist =
     async () => {
       try {
-        await creerBlocChecklist(
+        const tacheId =
+          await creerTacheProjet(
+            projet.id,
+            {
+              titre:
+                titre.trim() ||
+                note.titre ||
+                "Nouvelle tâche",
+              elements: [
+                {
+                  id:
+                    crypto.randomUUID(),
+                  texte: "",
+                  complete:
+                    false,
+                  termineeLe:
+                    "",
+                  noteConfirmation:
+                    "",
+                },
+              ],
+              dateEcheance:
+                "",
+              joursJaune:
+                7,
+              joursRouge:
+                2,
+            }
+          );
+
+        await modifierTacheProjet(
           projet.id,
-          note.id
+          tacheId,
+          {
+            noteId:
+              note.id,
+          }
         );
 
         await loadBlocs();
       } catch (error) {
         console.error(
-          "Erreur création checklist :",
+          "Erreur création tâche liée :",
           error
         );
       }
@@ -258,6 +480,11 @@ function PageNote({
                       ...bloc,
                       contenu,
                       important,
+
+                      references:
+                        extraireReferences(
+                          contenu
+                        ),
                     }
                   : bloc
             )
@@ -303,6 +530,73 @@ function PageNote({
         );
       }
     };
+
+  const handleModifierTacheLiee =
+    async (
+      tacheId,
+      donnees
+    ) => {
+      try {
+        await modifierTacheProjet(
+          projet.id,
+          tacheId,
+          donnees
+        );
+
+        setTachesLiees(
+          (actuelles) =>
+            actuelles.map(
+              (tache) =>
+                tache.id ===
+                tacheId
+                  ? {
+                      ...tache,
+                      ...donnees,
+                    }
+                  : tache
+            )
+        );
+      } catch (error) {
+        console.error(
+          "Erreur sauvegarde tâche liée :",
+          error
+        );
+      }
+    };
+
+  const handleSupprimerTacheLiee =
+    async (tacheId) => {
+      const confirmation =
+        window.confirm(
+          "Supprimer cette tâche du projet ?"
+        );
+
+      if (!confirmation) {
+        return;
+      }
+
+      try {
+        await supprimerTacheProjet(
+          projet.id,
+          tacheId
+        );
+
+        setTachesLiees(
+          (actuelles) =>
+            actuelles.filter(
+              (tache) =>
+                tache.id !==
+                tacheId
+            )
+        );
+      } catch (error) {
+        console.error(
+          "Erreur suppression tâche liée :",
+          error
+        );
+      }
+    };
+
 
   const handleModifierManuscrit =
     async (
@@ -397,17 +691,18 @@ function PageNote({
       }
     };
 
-  const checklists = blocs
-    .filter(
-      (bloc) =>
-        bloc.type ===
-        "checklist"
-    )
-    .sort(
-      (a, b) =>
-        (a.ordre || 0) -
-        (b.ordre || 0)
-    );
+  const checklists =
+    blocs
+      .filter(
+        (bloc) =>
+          bloc.type ===
+          "checklist"
+      )
+      .sort(
+        (a, b) =>
+          (a.ordre || 0) -
+          (b.ordre || 0)
+      );
 
   const blocsDeplacables =
     blocs
@@ -502,8 +797,13 @@ function PageNote({
       ) ||
       blocGlisseId;
 
-    setBlocGlisseId(null);
-    setBlocSurvoleId(null);
+    setBlocGlisseId(
+      null
+    );
+
+    setBlocSurvoleId(
+      null
+    );
 
     if (
       !idSource ||
@@ -528,7 +828,8 @@ function PageNote({
       );
 
     if (
-      indexSource === -1 ||
+      indexSource ===
+        -1 ||
       indexDestination ===
         -1
     ) {
@@ -555,6 +856,7 @@ function PageNote({
       nouveauxBlocs.map(
         (bloc, index) => ({
           ...bloc,
+
           ordre:
             (index + 1) *
             1000,
@@ -582,10 +884,16 @@ function PageNote({
     }
   };
 
-  const handleDragEnd = () => {
-    setBlocGlisseId(null);
-    setBlocSurvoleId(null);
-  };
+  const handleDragEnd =
+    () => {
+      setBlocGlisseId(
+        null
+      );
+
+      setBlocSurvoleId(
+        null
+      );
+    };
 
   const afficherBloc = (
     bloc,
@@ -687,59 +995,85 @@ function PageNote({
       <div
         key={bloc.id}
         draggable
+
         onDragStart={(e) =>
           handleDragStart(
             e,
             bloc
           )
         }
+
         onDragOver={(e) =>
           handleDragOver(
             e,
             bloc
           )
         }
+
         onDragLeave={(e) =>
           handleDragLeave(
             e,
             bloc
           )
         }
+
         onDrop={(e) =>
           handleDrop(
             e,
             bloc
           )
         }
+
         onDragEnd={
           handleDragEnd
         }
+
         style={{
-          position: "relative",
+          position:
+            "relative",
+
           opacity:
             estGlisse
               ? 0.45
               : 1,
+
           borderTop:
             estSurvole
               ? "3px solid #555"
               : "3px solid transparent",
-          paddingTop: "4px",
-          cursor: "grab",
+
+          paddingTop:
+            "4px",
+
+          cursor:
+            "grab",
         }}
       >
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
+
             justifyContent:
               "center",
+
             alignItems:
               "center",
-            height: "18px",
-            marginBottom: "2px",
-            color: "#999",
-            fontSize: "15px",
-            userSelect: "none",
+
+            height:
+              "18px",
+
+            marginBottom:
+              "2px",
+
+            color:
+              "#999",
+
+            fontSize:
+              "15px",
+
+            userSelect:
+              "none",
           }}
           title="Glisser pour déplacer"
         >
@@ -754,78 +1088,315 @@ function PageNote({
   return (
     <div
       style={{
-        minHeight: "100%",
-        background: "#fff",
+        minHeight:
+          "100%",
+
+        background:
+          "#fff",
       }}
     >
       <div
         style={{
           padding:
             "24px 32px 18px",
+
           borderBottom:
             "1px solid #ddd",
         }}
       >
-        <button
-          type="button"
-          onClick={onRetour}
+        <div
           style={{
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "space-between",
+
+            gap:
+              "12px",
+
             marginBottom:
               "18px",
           }}
         >
-          ← Retour aux notes
-        </button>
+          <button
+            type="button"
+            onClick={
+              onRetour
+            }
+          >
+            ← Retour aux notes
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              handleSupprimerNote
+            }
+            disabled={
+              suppressionEnCours
+            }
+            style={{
+              border:
+                "1px solid #d99",
+
+              color:
+                "#a22",
+
+              background:
+                "#fff5f5",
+
+              borderRadius:
+                "7px",
+
+              padding:
+                "7px 10px",
+
+              cursor:
+                suppressionEnCours
+                  ? "wait"
+                  : "pointer",
+            }}
+          >
+            {suppressionEnCours
+              ? "Suppression..."
+              : "🗑 Supprimer la note"}
+          </button>
+        </div>
 
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
+
             alignItems:
-              "center",
+              "flex-start",
+
             justifyContent:
               "space-between",
-            gap: "20px",
-            flexWrap: "wrap",
+
+            gap:
+              "20px",
+
+            flexWrap:
+              "wrap",
           }}
         >
           <div
             style={{
               flex: 1,
-              minWidth: "260px",
+
+              minWidth:
+                "280px",
             }}
           >
             <input
               type="text"
-              value={titre}
+              value={
+                titre
+              }
               onChange={
                 handleTitreChange
               }
+              placeholder="Titre de la note — tu peux utiliser @Nom"
               style={{
-                width: "100%",
-                border: "none",
-                outline: "none",
-                fontSize: "30px",
-                fontWeight: "700",
-                padding: 0,
+                width:
+                  "100%",
+
+                border:
+                  "none",
+
+                outline:
+                  "none",
+
+                fontSize:
+                  "30px",
+
+                fontWeight:
+                  "700",
+
+                padding:
+                  0,
               }}
             />
+
+            {referencesTitre.length >
+              0 && (
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  gap:
+                    "6px",
+
+                  flexWrap:
+                    "wrap",
+
+                  marginTop:
+                    "9px",
+                }}
+              >
+                {referencesTitre.map(
+                  (reference) => (
+                    <span
+                      key={
+                        reference
+                      }
+                      style={{
+                        padding:
+                          "4px 8px",
+
+                        borderRadius:
+                          "999px",
+
+                        background:
+                          "#eef3f8",
+
+                        color:
+                          "#40566a",
+
+                        fontSize:
+                          "12px",
+
+                        fontWeight:
+                          "600",
+                      }}
+                    >
+                      @{reference}
+                    </span>
+                  )
+                )}
+              </div>
+            )}
 
             <p
               style={{
                 margin:
-                  "8px 0 0",
-                color: "#777",
+                  "8px 0 12px",
+
+                color:
+                  "#777",
               }}
             >
               {projet.nom}
             </p>
+
+            <div
+              style={{
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                gap:
+                  "12px",
+
+                flexWrap:
+                  "wrap",
+              }}
+            >
+              <label
+                style={{
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  gap:
+                    "7px",
+
+                  cursor:
+                    "pointer",
+
+                  fontWeight:
+                    "600",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    dansCalendrier
+                  }
+                  onChange={
+                    handleCalendrierChange
+                  }
+                />
+
+                📅 Ajouter au calendrier
+              </label>
+
+              {dansCalendrier && (
+                <input
+                  type="date"
+                  value={
+                    dateCalendrier
+                  }
+                  onChange={
+                    handleDateCalendrierChange
+                  }
+                  style={{
+                    padding:
+                      "7px 10px",
+
+                    border:
+                      "1px solid #ccc",
+
+                    borderRadius:
+                      "8px",
+                  }}
+                />
+              )}
+            </div>
+
+            {dansCalendrier &&
+              !dateCalendrier && (
+              <div
+                style={{
+                  display:
+                    "inline-block",
+
+                  marginTop:
+                    "10px",
+
+                  padding:
+                    "7px 10px",
+
+                  borderRadius:
+                    "8px",
+
+                  background:
+                    "#fff7d6",
+
+                  color:
+                    "#746118",
+
+                  fontSize:
+                    "13px",
+                }}
+              >
+                Choisis une date pour
+                afficher cette note
+                dans le calendrier.
+              </div>
+            )}
           </div>
 
           <div
             style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
+              display:
+                "flex",
+
+              gap:
+                "8px",
+
+              flexWrap:
+                "wrap",
             }}
           >
             <button
@@ -864,7 +1435,9 @@ function PageNote({
               🔗 Lien
             </button>
 
-            <button type="button">
+            <button
+              type="button"
+            >
               + Fichier
             </button>
           </div>
@@ -873,13 +1446,17 @@ function PageNote({
 
       <div
         style={{
-          padding: "32px",
+          padding:
+            "32px",
         }}
       >
         <div
           style={{
-            maxWidth: "1000px",
-            margin: "0 auto",
+            maxWidth:
+              "1000px",
+
+            margin:
+              "0 auto",
           }}
         >
           {chargement && (
@@ -889,40 +1466,61 @@ function PageNote({
           )}
 
           {!chargement &&
-            blocs.length === 0 && (
+            blocs.length ===
+              0 &&
+            tachesLiees.length ===
+              0 && (
               <div
                 style={{
                   border:
                     "1px dashed #ccc",
+
                   borderRadius:
                     "14px",
-                  padding: "40px",
+
+                  padding:
+                    "40px",
+
                   textAlign:
                     "center",
-                  color: "#777",
+
+                  color:
+                    "#777",
                 }}
               >
                 <h3
                   style={{
-                    marginTop: 0,
-                    color: "#333",
+                    marginTop:
+                      0,
+
+                    color:
+                      "#333",
                   }}
                 >
                   Cette note est vide
                 </h3>
 
                 <p>
-                  Ajoute un bloc pour commencer.
+                  Ajoute un bloc pour
+                  commencer.
                 </p>
 
                 <div
                   style={{
-                    display: "flex",
+                    display:
+                      "flex",
+
                     justifyContent:
                       "center",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                    marginTop: "20px",
+
+                    gap:
+                      "10px",
+
+                    flexWrap:
+                      "wrap",
+
+                    marginTop:
+                      "20px",
                   }}
                 >
                   <button
@@ -965,6 +1563,37 @@ function PageNote({
             )}
 
           {!chargement &&
+            tachesLiees.length >
+              0 && (
+              <div
+                style={{
+                  marginBottom:
+                    "22px",
+                }}
+              >
+                {tachesLiees.map(
+                  (tache) => (
+                    <BlocChecklist
+                      key={
+                        tache.id
+                      }
+                      tache={
+                        tache
+                      }
+                      modeTache
+                      onModifier={
+                        handleModifierTacheLiee
+                      }
+                      onSupprimer={
+                        handleSupprimerTacheLiee
+                      }
+                    />
+                  )
+                )}
+              </div>
+            )}
+
+          {!chargement &&
             checklists.length >
               0 && (
               <div
@@ -993,15 +1622,28 @@ function PageNote({
             )}
 
           {!chargement &&
-            blocs.length > 0 && (
+            (
+              blocs.length >
+                0 ||
+              tachesLiees.length >
+                0
+            ) && (
               <div
                 style={{
-                  display: "flex",
+                  display:
+                    "flex",
+
                   justifyContent:
                     "center",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                  marginTop: "24px",
+
+                  gap:
+                    "10px",
+
+                  flexWrap:
+                    "wrap",
+
+                  marginTop:
+                    "24px",
                 }}
               >
                 <button

@@ -1,190 +1,440 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import PageNotes from "./PageNotes";
+import PageVueEnsemble from "./PageVueEnsemble";
+import PageImportant from "./PageImportant";
+import PageTaches from "./PageTaches";
+import PageCalendrier from "./PageCalendrier";
+import PageReferences from "./PageReferences";
 
-function PageProjet({ projet, onRetour }) {
-  const [ongletActif, setOngletActif] = useState("vue");
+function PageProjet({
+  projet,
+  onRetour,
+  noteAOuvrir = null,
+  onNoteOuverte,
+}) {
+  const [
+    ongletActif,
+    setOngletActif,
+  ] = useState(
+    projet?.jonoteOngletInitial ||
+      "vue-ensemble"
+  );
 
-  if (!projet) {
-    return (
-      <div
-        style={{
-          padding: "40px",
-        }}
-      >
-        <p>Aucun projet sélectionné.</p>
+  const [
+    tacheAOuvrirId,
+    setTacheAOuvrirId,
+  ] = useState(
+    projet?.jonoteTacheId ||
+      null
+  );
 
-        <button
-          type="button"
-          onClick={onRetour}
-        >
-          Retour
-        </button>
-      </div>
+  useEffect(() => {
+    if (noteAOuvrir) {
+      setOngletActif(
+        "vue-ensemble"
+      );
+    }
+  }, [
+    noteAOuvrir?.id,
+  ]);
+
+  useEffect(() => {
+    if (
+      projet?.jonoteOngletInitial ===
+      "taches"
+    ) {
+      setOngletActif(
+        "taches"
+      );
+
+      setTacheAOuvrirId(
+        projet?.jonoteTacheId ||
+          null
+      );
+    }
+  }, [
+    projet?.id,
+    projet?.jonoteOngletInitial,
+    projet?.jonoteTacheId,
+  ]);
+
+  const ouvrirTache = (
+    tacheId
+  ) => {
+    setTacheAOuvrirId(
+      tacheId
     );
-  }
+
+    setOngletActif(
+      "taches"
+    );
+  };
 
   const onglets = [
     {
-      id: "vue",
-      label: "Vue d'ensemble",
+      id:
+        "vue-ensemble",
+
+      nom:
+        "Vue d'ensemble",
     },
+
     {
-      id: "notes",
-      label: "Notes",
+      id:
+        "calendrier",
+
+      nom:
+        "Calendrier",
     },
+
     {
-      id: "chronologie",
-      label: "Chronologie",
+      id:
+        "references",
+
+      nom:
+        "Références",
     },
+
     {
-      id: "important",
-      label: "Important",
+      id:
+        "important",
+
+      nom:
+        "Important",
     },
+
     {
-      id: "taches",
-      label: "Tâches",
+      id:
+        "taches",
+
+      nom:
+        "Tâches",
     },
+
     {
-      id: "fichiers",
-      label: "Fichiers",
+      id:
+        "fichiers",
+
+      nom:
+        "Fichiers",
     },
   ];
+
+  const afficherContenu =
+    () => {
+      if (
+        ongletActif ===
+        "vue-ensemble"
+      ) {
+        return (
+          <PageVueEnsemble
+            projet={projet}
+            noteAOuvrir={
+              noteAOuvrir
+            }
+            onNoteOuverte={
+              onNoteOuverte
+            }
+            onOuvrirTache={
+              ouvrirTache
+            }
+          />
+        );
+      }
+
+      if (
+        ongletActif ===
+        "calendrier"
+      ) {
+        return (
+          <PageCalendrier
+            projet={projet}
+          />
+        );
+      }
+
+      if (
+        ongletActif ===
+        "references"
+      ) {
+        return (
+          <PageReferences
+            projet={projet}
+          />
+        );
+      }
+
+      if (
+        ongletActif ===
+        "important"
+      ) {
+        return (
+          <PageImportant
+            projet={projet}
+          />
+        );
+      }
+
+      if (
+        ongletActif ===
+        "taches"
+      ) {
+        return (
+          <PageTaches
+            projet={projet}
+            tacheAOuvrirId={
+              tacheAOuvrirId
+            }
+          />
+        );
+      }
+
+      if (
+        ongletActif ===
+        "fichiers"
+      ) {
+        return (
+          <div
+            style={{
+              padding:
+                "32px",
+            }}
+          >
+            <div
+              style={{
+                maxWidth:
+                  "1000px",
+
+                margin:
+                  "0 auto",
+              }}
+            >
+              <h2>
+                Fichiers
+              </h2>
+
+              <p
+                style={{
+                  color:
+                    "#777",
+                }}
+              >
+                Les fichiers du
+                projet seront
+                affichés ici.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      return null;
+    };
 
   return (
     <div
       style={{
-        padding: "40px",
+        minHeight:
+          "100%",
+
+        background:
+          "#fff",
       }}
     >
-      <button
-        type="button"
-        onClick={onRetour}
-        style={{
-          marginBottom: "20px",
-        }}
-      >
-        ← Retour
-      </button>
-
       <div
         style={{
-          marginBottom: "30px",
+          padding:
+            "24px 32px 0",
+
+          borderBottom:
+            "1px solid #ddd",
         }}
       >
-        <h1
+        <button
+          type="button"
+          onClick={
+            onRetour
+          }
           style={{
-            marginBottom: "8px",
+            marginBottom:
+              "18px",
           }}
         >
-          {projet.nom}
-        </h1>
+          ← Tous les projets
+        </button>
 
-        {projet.description && (
-          <p
-            style={{
-              margin: 0,
-              color: "#666",
-            }}
-          >
-            {projet.description}
-          </p>
-        )}
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          flexWrap: "wrap",
-          marginBottom: "30px",
-          borderBottom: "1px solid #ddd",
-        }}
-      >
-        {onglets.map((onglet) => (
-          <button
-            key={onglet.id}
-            type="button"
-            onClick={() => setOngletActif(onglet.id)}
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: "12px 14px",
-              cursor: "pointer",
-              borderBottom:
-                ongletActif === onglet.id
-                  ? "3px solid #222"
-                  : "3px solid transparent",
-              fontWeight:
-                ongletActif === onglet.id
-                  ? "600"
-                  : "400",
-            }}
-          >
-            {onglet.label}
-          </button>
-        ))}
-      </div>
-
-      {ongletActif === "vue" && (
         <div
           style={{
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            padding: "24px",
+            marginBottom:
+              "22px",
           }}
         >
-          <h2
+          <h1
             style={{
-              marginTop: 0,
+              margin:
+                "0 0 6px",
+
+              fontSize:
+                "30px",
             }}
           >
-            Vue d'ensemble
-          </h2>
+            {projet.nom}
+          </h1>
 
-          <p>
-            Les informations principales du projet seront affichées ici.
-          </p>
+          {projet.description && (
+            <p
+              style={{
+                margin:
+                  0,
+
+                color:
+                  "#777",
+              }}
+            >
+              {
+                projet.description
+              }
+            </p>
+          )}
         </div>
-      )}
 
-      {ongletActif === "notes" && (
-        <PageNotes projet={projet} />
-      )}
+        <div
+          style={{
+            display:
+              "flex",
 
-      {ongletActif === "chronologie" && (
-        <div>
-          <h2>Chronologie</h2>
-          <p>La chronologie du projet sera affichée ici.</p>
+            gap:
+              "4px",
+
+            overflowX:
+              "auto",
+          }}
+        >
+          {onglets.map(
+            (onglet) => {
+              const estActif =
+                ongletActif ===
+                onglet.id;
+
+              let icone =
+                "";
+
+              if (
+                onglet.id ===
+                "vue-ensemble"
+              ) {
+                icone =
+                  "📝 ";
+              }
+
+              if (
+                onglet.id ===
+                "calendrier"
+              ) {
+                icone =
+                  "📅 ";
+              }
+
+              if (
+                onglet.id ===
+                "references"
+              ) {
+                icone =
+                  "@ ";
+              }
+
+              if (
+                onglet.id ===
+                "important"
+              ) {
+                icone =
+                  "⭐ ";
+              }
+
+              if (
+                onglet.id ===
+                "taches"
+              ) {
+                icone =
+                  "☑️ ";
+              }
+
+              if (
+                onglet.id ===
+                "fichiers"
+              ) {
+                icone =
+                  "📎 ";
+              }
+
+              return (
+                <button
+                  key={
+                    onglet.id
+                  }
+                  type="button"
+                  onClick={() => {
+                    setOngletActif(
+                      onglet.id
+                    );
+
+                    if (
+                      onglet.id !==
+                      "taches"
+                    ) {
+                      setTacheAOuvrirId(
+                        null
+                      );
+                    }
+                  }}
+                  style={{
+                    border:
+                      "none",
+
+                    borderBottom:
+                      estActif
+                        ? "3px solid #222"
+                        : "3px solid transparent",
+
+                    background:
+                      "transparent",
+
+                    padding:
+                      "12px 16px",
+
+                    fontWeight:
+                      estActif
+                        ? "700"
+                        : "500",
+
+                    color:
+                      estActif
+                        ? "#222"
+                        : "#777",
+
+                    cursor:
+                      "pointer",
+
+                    whiteSpace:
+                      "nowrap",
+
+                    fontFamily:
+                      "inherit",
+                  }}
+                >
+                  {icone}
+                  {onglet.nom}
+                </button>
+              );
+            }
+          )}
         </div>
-      )}
+      </div>
 
-      {ongletActif === "important" && (
-        <div>
-          <h2>Important</h2>
-          <p>
-            Les éléments importants du projet seront affichés ici.
-          </p>
-        </div>
-      )}
-
-      {ongletActif === "taches" && (
-        <div>
-          <h2>Tâches</h2>
-          <p>
-            Les tâches du projet seront affichées ici.
-          </p>
-        </div>
-      )}
-
-      {ongletActif === "fichiers" && (
-        <div>
-          <h2>Fichiers</h2>
-          <p>
-            Les fichiers du projet seront affichés ici.
-          </p>
-        </div>
-      )}
+      {afficherContenu()}
     </div>
   );
 }
