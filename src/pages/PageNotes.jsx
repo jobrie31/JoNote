@@ -840,6 +840,18 @@ function PageNotes({
           .filter(Boolean);
 
       if (
+        mots.length ===
+        0
+      ) {
+        resultat =
+          resultat.filter(
+            (note) =>
+              note.cachee !==
+              true
+          );
+      }
+
+      if (
         mots.length >
         0
       ) {
@@ -1437,6 +1449,33 @@ function PageNotes({
                             {aImportant && (
                               <span>
                                 ⭐
+                              </span>
+                            )}
+
+                            {note.cachee ===
+                              true && (
+                              <span
+                                style={{
+                                  padding:
+                                    "3px 6px",
+
+                                  borderRadius:
+                                    "999px",
+
+                                  background:
+                                    "#f0f0f0",
+
+                                  color:
+                                    "#777",
+
+                                  fontSize:
+                                    "9px",
+
+                                  fontWeight:
+                                    "600",
+                                }}
+                              >
+                                🙈 Cachée
                               </span>
                             )}
                           </div>

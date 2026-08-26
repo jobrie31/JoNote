@@ -17,6 +17,7 @@ import {
 function PageAccueil({
   onOuvrirProjet,
   onOuvrirNote,
+  onOuvrirCalendrierGlobal,
 }) {
   const [
     projets,
@@ -52,6 +53,16 @@ function PageAccueil({
     erreur,
     setErreur,
   ] = useState("");
+
+  const [
+    sectionApercuOuverte,
+    setSectionApercuOuverte,
+  ] = useState(null);
+
+  const [
+    nombreApercu,
+    setNombreApercu,
+  ] = useState(5);
 
   const obtenirMillis = (
     timestamp
@@ -257,7 +268,11 @@ function PageAccueil({
             derniereActivite,
 
             nombreNotes:
-              notesProjet.length,
+              notesProjet.filter(
+                (note) =>
+                  note.cachee !==
+                  true
+              ).length,
 
             nombreTaches:
               tachesProjet.filter(
@@ -416,6 +431,8 @@ function PageAccueil({
       return notes
         .filter(
           (note) =>
+            note.cachee !==
+              true &&
             note.dansCalendrier ===
               true &&
             (
@@ -431,17 +448,105 @@ function PageAccueil({
             a.dateCalendrier.localeCompare(
               b.dateCalendrier
             )
-        )
-        .slice(
-          0,
-          4
         );
     }, [notes]);
+
+  const tachesCalendrier =
+    useMemo(() => {
+      const aujourdHui =
+        obtenirDateAujourdhui();
+
+      return taches
+        .filter(
+          (tache) =>
+            (
+              tache.dateEcheance ||
+              ""
+            ).trim() !==
+              "" &&
+            tache.dateEcheance >=
+              aujourdHui
+        )
+        .sort(
+          (a, b) =>
+            a.dateEcheance.localeCompare(
+              b.dateEcheance
+            )
+        );
+    }, [taches]);
+
+  const elementsAVenir =
+    useMemo(() => {
+      const notesAVenir =
+        notesCalendrier.map(
+          (note) => ({
+            id:
+              `note-${note.projet.id}-${note.id}`,
+
+            type:
+              "note",
+
+            date:
+              note.dateCalendrier,
+
+            note,
+
+            projet:
+              note.projet,
+
+            titre:
+              note.titre ||
+              "Sans titre",
+          })
+        );
+
+      const tachesAVenir =
+        tachesCalendrier.map(
+          (tache) => ({
+            id:
+              `tache-${tache.projet.id}-${tache.id}`,
+
+            type:
+              "tache",
+
+            date:
+              tache.dateEcheance,
+
+            tache,
+
+            projet:
+              tache.projet,
+
+            titre:
+              tache.titre ||
+              "Sans titre",
+          })
+        );
+
+      return [
+        ...notesAVenir,
+        ...tachesAVenir,
+      ].sort(
+        (a, b) =>
+          a.date.localeCompare(
+            b.date
+          )
+      );
+    }, [
+      notesCalendrier,
+      tachesCalendrier,
+    ]);
 
   const projetsRecents =
     projets.slice(
       0,
       6
+    );
+
+  const notesCalendrierApercu =
+    elementsAVenir.slice(
+      0,
+      4
     );
 
   const tachesAffichees =
@@ -628,16 +733,82 @@ function PageAccueil({
     );
   };
 
+  const obtenirNombreApercuAuto = (
+    total
+  ) => {
+    if (total <= 5) {
+      return 5;
+    }
+
+    if (total <= 10) {
+      return 10;
+    }
+
+    if (total <= 15) {
+      return 15;
+    }
+
+    return 20;
+  };
+
+  const ouvrirSectionApercu = (
+    section
+  ) => {
+    if (
+      sectionApercuOuverte ===
+      section
+    ) {
+      setSectionApercuOuverte(
+        null
+      );
+
+      return;
+    }
+
+    if (
+      section ===
+      "taches"
+    ) {
+      setNombreApercu(
+        obtenirNombreApercuAuto(
+          taches.length
+        )
+      );
+    }
+
+    if (
+      section ===
+      "a-venir"
+    ) {
+      setNombreApercu(
+        obtenirNombreApercuAuto(
+          elementsAVenir.length
+        )
+      );
+    }
+
+    setSectionApercuOuverte(
+      section
+    );
+  };
+
   const blocCompact = (
+    id,
     titre,
     compteur,
     contenu
   ) => {
+    const estOuvert =
+      sectionApercuOuverte ===
+      id;
+
     return (
       <div
         style={{
           border:
-            "1px solid #e2e2e2",
+            estOuvert
+              ? "1px solid #b8c3cc"
+              : "1px solid #e2e2e2",
 
           borderRadius:
             "12px",
@@ -652,8 +823,17 @@ function PageAccueil({
             0,
         }}
       >
-        <div
+        <button
+          type="button"
+          onClick={() =>
+            ouvrirSectionApercu(
+              id
+            )
+          }
           style={{
+            width:
+              "100%",
+
             display:
               "flex",
 
@@ -668,7 +848,26 @@ function PageAccueil({
 
             marginBottom:
               "9px",
+
+            padding:
+              0,
+
+            border:
+              "none",
+
+            background:
+              "transparent",
+
+            cursor:
+              "pointer",
+
+            fontFamily:
+              "inherit",
+
+            textAlign:
+              "left",
           }}
+          title="Cliquer pour voir plus"
         >
           <strong
             style={{
@@ -679,14 +878,579 @@ function PageAccueil({
             {titre}
           </strong>
 
-          <span
+          <div
+            style={{
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              gap:
+                "7px",
+            }}
+          >
+            <span
+              style={{
+                minWidth:
+                  "22px",
+
+                height:
+                  "22px",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                padding:
+                  "0 6px",
+
+                background:
+                  "#f2f2f2",
+
+                borderRadius:
+                  "999px",
+
+                color:
+                  "#666",
+
+                fontSize:
+                  "11px",
+
+                fontWeight:
+                  "700",
+              }}
+            >
+              {compteur}
+            </span>
+
+            <span
+              style={{
+                color:
+                  "#999",
+
+                fontSize:
+                  "10px",
+              }}
+            >
+              {estOuvert
+                ? "▲"
+                : "▼"}
+            </span>
+          </div>
+        </button>
+
+        {contenu}
+      </div>
+    );
+  };
+
+  const rendreElementAVenir = (
+    element
+  ) => {
+    const estTache =
+      element.type ===
+      "tache";
+
+    return (
+      <button
+        key={element.id}
+        type="button"
+        onClick={() => {
+          if (estTache) {
+            onOuvrirProjet({
+              ...element.projet,
+              jonoteOngletInitial:
+                "taches",
+              jonoteTacheId:
+                element.tache.id,
+            });
+
+            return;
+          }
+
+          ouvrirNote(
+            element.note
+          );
+        }}
+        style={{
+          display:
+            "flex",
+
+          justifyContent:
+            "space-between",
+
+          alignItems:
+            "center",
+
+          gap:
+            "10px",
+
+          width:
+            "100%",
+
+          padding:
+            "8px 9px",
+
+          border:
+            "1px solid #e6ebef",
+
+          borderRadius:
+            "7px",
+
+          background:
+            "#f8fafb",
+
+          textAlign:
+            "left",
+
+          cursor:
+            "pointer",
+
+          fontFamily:
+            "inherit",
+        }}
+      >
+        <div
+          style={{
+            minWidth:
+              0,
+          }}
+        >
+          <div
+            style={{
+              overflow:
+                "hidden",
+
+              textOverflow:
+                "ellipsis",
+
+              whiteSpace:
+                "nowrap",
+
+              fontWeight:
+                "600",
+
+              fontSize:
+                "12px",
+            }}
+          >
+            {estTache
+              ? "☑️ "
+              : "📝 "}
+            {element.titre}
+          </div>
+
+          <div
+            style={{
+              marginTop:
+                "2px",
+
+              color:
+                "#999",
+
+              fontSize:
+                "9px",
+
+              overflow:
+                "hidden",
+
+              textOverflow:
+                "ellipsis",
+
+              whiteSpace:
+                "nowrap",
+            }}
+          >
+            {element.projet.nom}
+            {estTache
+              ? " • Tâche"
+              : " • Note"}
+          </div>
+        </div>
+
+        <span
+          style={{
+            color:
+              "#687784",
+
+            fontSize:
+              "10px",
+
+            whiteSpace:
+              "nowrap",
+          }}
+        >
+          {formaterDate(
+            element.date
+          )}
+        </span>
+      </button>
+    );
+  };
+
+  const rendreTacheApercu = (
+    tache
+  ) => {
+    const avancement =
+      obtenirAvancementTache(
+        tache
+      );
+
+    const etat =
+      obtenirEtatTache(
+        tache
+      );
+
+    return (
+      <button
+        key={`${tache.projet.id}-${tache.id}`}
+        type="button"
+        onClick={() =>
+          onOuvrirProjet({
+            ...tache.projet,
+            jonoteOngletInitial:
+              "taches",
+            jonoteTacheId:
+              tache.id,
+          })
+        }
+        style={{
+          width:
+            "100%",
+
+          padding:
+            "8px 9px",
+
+          border:
+            etat ===
+            "rouge"
+              ? "1px solid #dc8e8e"
+              : etat ===
+                "jaune"
+              ? "1px solid #dfcb70"
+              : "1px solid #e8e8e8",
+
+          borderRadius:
+            "7px",
+
+          background:
+            etat ===
+            "rouge"
+              ? "#fff0f0"
+              : etat ===
+                "jaune"
+              ? "#fffbea"
+              : "#fff",
+
+          textAlign:
+            "left",
+
+          cursor:
+            "pointer",
+
+          fontFamily:
+            "inherit",
+        }}
+      >
+        <div
+          style={{
+            display:
+              "flex",
+
+            justifyContent:
+              "space-between",
+
+            alignItems:
+              "center",
+
+            gap:
+              "8px",
+          }}
+        >
+          <div
             style={{
               minWidth:
-                "22px",
+                0,
 
-              height:
-                "22px",
+              fontSize:
+                "12px",
 
+              color:
+                "#333",
+
+              fontWeight:
+                "600",
+
+              overflow:
+                "hidden",
+
+              textOverflow:
+                "ellipsis",
+
+              whiteSpace:
+                "nowrap",
+            }}
+          >
+            ☐ {tache.titre ||
+              "Sans titre"}
+          </div>
+
+          {tache.dateEcheance && (
+            <span
+              style={{
+                color:
+                  etat ===
+                  "rouge"
+                    ? "#a52d2d"
+                    : etat ===
+                      "jaune"
+                    ? "#776512"
+                    : "#777",
+
+                fontSize:
+                  "9px",
+
+                whiteSpace:
+                  "nowrap",
+              }}
+            >
+              📅 {formaterDate(
+                tache.dateEcheance
+              )}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop:
+              "2px",
+
+            color:
+              "#999",
+
+            fontSize:
+              "9px",
+
+            overflow:
+              "hidden",
+
+            textOverflow:
+              "ellipsis",
+
+            whiteSpace:
+              "nowrap",
+          }}
+        >
+          {tache.projet.nom} • {
+            avancement.terminees
+          }/{avancement.total} terminée{
+            avancement.total !==
+            1
+              ? "s"
+              : ""
+          }
+        </div>
+      </button>
+    );
+  };
+
+  const rendreImportantApercu = (
+    important
+  ) => {
+    return (
+      <button
+        key={important.id}
+        type="button"
+        onClick={() =>
+          ouvrirNote(
+            important.note
+          )
+        }
+        style={{
+          width:
+            "100%",
+
+          padding:
+            "8px 9px",
+
+          border:
+            "1px solid #eadb98",
+
+          borderRadius:
+            "7px",
+
+          background:
+            "#fffbed",
+
+          textAlign:
+            "left",
+
+          cursor:
+            "pointer",
+
+          fontFamily:
+            "inherit",
+        }}
+      >
+        <div
+          style={{
+            fontSize:
+              "11px",
+
+            color:
+              "#4b4326",
+
+            overflow:
+              "hidden",
+
+            textOverflow:
+              "ellipsis",
+
+            whiteSpace:
+              "nowrap",
+          }}
+        >
+          {raccourcir(
+            important.contenu,
+            110
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop:
+              "2px",
+
+            color:
+              "#9a8b52",
+
+            fontSize:
+              "9px",
+
+            overflow:
+              "hidden",
+
+            textOverflow:
+              "ellipsis",
+
+            whiteSpace:
+              "nowrap",
+          }}
+        >
+          {important.projet.nom} • {
+            important.note.titre
+          }
+        </div>
+      </button>
+    );
+  };
+
+  const rendreSectionApercuOuverte =
+    () => {
+      if (!sectionApercuOuverte) {
+        return null;
+      }
+
+      let titreSection =
+        "";
+
+      let total =
+        0;
+
+      let contenu =
+        null;
+
+      if (
+        sectionApercuOuverte ===
+        "a-venir"
+      ) {
+        titreSection =
+          "📅 À venir";
+
+        total =
+          elementsAVenir.length;
+
+        contenu =
+          elementsAVenir
+            .slice(
+              0,
+              nombreApercu
+            )
+            .map(
+              rendreElementAVenir
+            );
+      }
+
+      if (
+        sectionApercuOuverte ===
+        "taches"
+      ) {
+        titreSection =
+          "☑️ Tâches";
+
+        total =
+          taches.length;
+
+        contenu =
+          taches
+            .slice(
+              0,
+              nombreApercu
+            )
+            .map(
+              rendreTacheApercu
+            );
+      }
+
+      if (
+        sectionApercuOuverte ===
+        "importants"
+      ) {
+        titreSection =
+          "⭐ Importants";
+
+        total =
+          importants.length;
+
+        contenu =
+          importants
+            .slice(
+              0,
+              nombreApercu
+            )
+            .map(
+              rendreImportantApercu
+            );
+      }
+
+      return (
+        <div
+          style={{
+            margin:
+              "-14px 0 26px",
+
+            padding:
+              "16px",
+
+            border:
+              "1px solid #dfe3e7",
+
+            borderRadius:
+              "12px",
+
+            background:
+              "#fff",
+          }}
+        >
+          <div
+            style={{
               display:
                 "flex",
 
@@ -694,35 +1458,210 @@ function PageAccueil({
                 "center",
 
               justifyContent:
-                "center",
+                "space-between",
 
-              padding:
-                "0 6px",
+              gap:
+                "14px",
 
-              background:
-                "#f2f2f2",
+              flexWrap:
+                "wrap",
 
-              borderRadius:
-                "999px",
-
-              color:
-                "#666",
-
-              fontSize:
-                "11px",
-
-              fontWeight:
-                "700",
+              marginBottom:
+                "12px",
             }}
           >
-            {compteur}
-          </span>
-        </div>
+            <div>
+              <h2
+                style={{
+                  margin:
+                    "0 0 3px",
 
-        {contenu}
-      </div>
-    );
-  };
+                  fontSize:
+                    "17px",
+                }}
+              >
+                {titreSection}
+              </h2>
+
+              <div
+                style={{
+                  color:
+                    "#888",
+
+                  fontSize:
+                    "10px",
+                }}
+              >
+                {total === 0
+                  ? "Aucun élément"
+                  : `Affichage de ${Math.min(
+                      nombreApercu,
+                      total
+                    )} sur ${total}`}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                gap:
+                  "8px",
+
+                flexWrap:
+                  "wrap",
+              }}
+            >
+              <span
+                style={{
+                  color:
+                    "#777",
+
+                  fontSize:
+                    "10px",
+                }}
+              >
+                Afficher
+              </span>
+
+              {[5, 10, 15, 20].map(
+                (nombre) => (
+                  <button
+                    key={nombre}
+                    type="button"
+                    onClick={() =>
+                      setNombreApercu(
+                        nombre
+                      )
+                    }
+                    style={{
+                      minWidth:
+                        "34px",
+
+                      padding:
+                        "5px 7px",
+
+                      border:
+                        nombreApercu ===
+                        nombre
+                          ? "1px solid #777"
+                          : "1px solid #ddd",
+
+                      borderRadius:
+                        "6px",
+
+                      background:
+                        nombreApercu ===
+                        nombre
+                          ? "#f0f0f0"
+                          : "#fff",
+
+                      fontWeight:
+                        nombreApercu ===
+                        nombre
+                          ? "700"
+                          : "500",
+
+                      cursor:
+                        "pointer",
+
+                      fontFamily:
+                        "inherit",
+
+                      fontSize:
+                        "10px",
+                    }}
+                  >
+                    {nombre}
+                  </button>
+                )
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSectionApercuOuverte(
+                    null
+                  )
+                }
+                style={{
+                  marginLeft:
+                    "4px",
+
+                  padding:
+                    "5px 8px",
+
+                  border:
+                    "1px solid #ddd",
+
+                  borderRadius:
+                    "6px",
+
+                  background:
+                    "#fff",
+
+                  cursor:
+                    "pointer",
+
+                  fontFamily:
+                    "inherit",
+
+                  fontSize:
+                    "10px",
+                }}
+              >
+                ✕ Fermer
+              </button>
+            </div>
+          </div>
+
+          {total === 0 ? (
+            <div
+              style={{
+                padding:
+                  "20px",
+
+                border:
+                  "1px dashed #ddd",
+
+                borderRadius:
+                  "8px",
+
+                color:
+                  "#999",
+
+                textAlign:
+                  "center",
+
+                fontSize:
+                  "11px",
+              }}
+            >
+              Rien à afficher.
+            </div>
+          ) : (
+            <div
+              style={{
+                display:
+                  "grid",
+
+                gridTemplateColumns:
+                  "repeat(auto-fill, minmax(280px, 1fr))",
+
+                gap:
+                  "7px",
+              }}
+            >
+              {contenu}
+            </div>
+          )}
+        </div>
+      );
+    };
 
   return (
     <div
@@ -798,23 +1737,55 @@ function PageAccueil({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              setModalOuvert(
-                true
-              )
-            }
+          <div
             style={{
-              padding:
-                "9px 14px",
+              display:
+                "flex",
 
-              fontWeight:
-                "600",
+              alignItems:
+                "center",
+
+              gap:
+                "8px",
+
+              flexWrap:
+                "wrap",
             }}
           >
-            + Nouveau projet
-          </button>
+            <button
+              type="button"
+              onClick={
+                onOuvrirCalendrierGlobal
+              }
+              style={{
+                padding:
+                  "9px 14px",
+
+                fontWeight:
+                  "600",
+              }}
+            >
+              📅 Calendrier global
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setModalOuvert(
+                  true
+                )
+              }
+              style={{
+                padding:
+                  "9px 14px",
+
+                fontWeight:
+                  "600",
+              }}
+            >
+              + Nouveau projet
+            </button>
+          </div>
         </div>
 
         {chargement && (
@@ -928,9 +1899,10 @@ function PageAccueil({
                 }}
               >
                 {blocCompact(
+                  "a-venir",
                   "📅 À venir",
-                  notesCalendrier.length,
-                  notesCalendrier.length ===
+                  elementsAVenir.length,
+                  notesCalendrierApercu.length ===
                     0 ? (
                     <div
                       style={{
@@ -956,137 +1928,15 @@ function PageAccueil({
                           "5px",
                       }}
                     >
-                      {notesCalendrier.map(
-                        (note) => (
-                          <button
-                            key={
-                              `${note.projet.id}-${note.id}`
-                            }
-                            type="button"
-                            onClick={() =>
-                              ouvrirNote(
-                                note
-                              )
-                            }
-                            style={{
-                              display:
-                                "flex",
-
-                              justifyContent:
-                                "space-between",
-
-                              alignItems:
-                                "center",
-
-                              gap:
-                                "8px",
-
-                              width:
-                                "100%",
-
-                              padding:
-                                "7px 8px",
-
-                              border:
-                                "1px solid #e6ebef",
-
-                              borderRadius:
-                                "7px",
-
-                              background:
-                                "#f8fafb",
-
-                              textAlign:
-                                "left",
-
-                              cursor:
-                                "pointer",
-
-                              fontFamily:
-                                "inherit",
-                            }}
-                          >
-                            <div
-                              style={{
-                                minWidth:
-                                  0,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  overflow:
-                                    "hidden",
-
-                                  textOverflow:
-                                    "ellipsis",
-
-                                  whiteSpace:
-                                    "nowrap",
-
-                                  fontWeight:
-                                    "600",
-
-                                  fontSize:
-                                    "12px",
-                                }}
-                              >
-                                {note.titre ||
-                                  "Sans titre"}
-                              </div>
-
-                              <div
-                                style={{
-                                  marginTop:
-                                    "2px",
-
-                                  color:
-                                    "#999",
-
-                                  fontSize:
-                                    "9px",
-
-                                  overflow:
-                                    "hidden",
-
-                                  textOverflow:
-                                    "ellipsis",
-
-                                  whiteSpace:
-                                    "nowrap",
-                                }}
-                              >
-                                {
-                                  note
-                                    .projet
-                                    .nom
-                                }
-                              </div>
-                            </div>
-
-                            <span
-                              style={{
-                                color:
-                                  "#687784",
-
-                                fontSize:
-                                  "10px",
-
-                                whiteSpace:
-                                  "nowrap",
-                              }}
-                            >
-                              {formaterDate(
-                                note.dateCalendrier
-                              )}
-                            </span>
-                          </button>
-                        )
+                      {notesCalendrierApercu.map(
+                        rendreElementAVenir
                       )}
                     </div>
                   )
                 )}
 
                 {blocCompact(
+                  "taches",
                   "☑️ Tâches",
                   taches.length,
                   tachesAffichees.length ===
@@ -1116,190 +1966,14 @@ function PageAccueil({
                       }}
                     >
                       {tachesAffichees.map(
-                        (tache) => {
-                          const avancement =
-                            obtenirAvancementTache(
-                              tache
-                            );
-
-                          const etat =
-                            obtenirEtatTache(
-                              tache
-                            );
-
-                          return (
-                            <button
-                              key={
-                                `${tache.projet.id}-${tache.id}`
-                              }
-                              type="button"
-                              onClick={() =>
-                                onOuvrirProjet(
-                                  {
-                                    ...tache.projet,
-                                    jonoteOngletInitial:
-                                      "taches",
-                                    jonoteTacheId:
-                                      tache.id,
-                                  }
-                                )
-                              }
-                              style={{
-                                width:
-                                  "100%",
-
-                                padding:
-                                  "7px 8px",
-
-                                border:
-                                  etat ===
-                                  "rouge"
-                                    ? "1px solid #dc8e8e"
-                                    : etat ===
-                                      "jaune"
-                                    ? "1px solid #dfcb70"
-                                    : "1px solid #e8e8e8",
-
-                                borderRadius:
-                                  "7px",
-
-                                background:
-                                  etat ===
-                                  "rouge"
-                                    ? "#fff0f0"
-                                    : etat ===
-                                      "jaune"
-                                    ? "#fffbea"
-                                    : "#fff",
-
-                                textAlign:
-                                  "left",
-
-                                cursor:
-                                  "pointer",
-
-                                fontFamily:
-                                  "inherit",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display:
-                                    "flex",
-
-                                  justifyContent:
-                                    "space-between",
-
-                                  alignItems:
-                                    "center",
-
-                                  gap:
-                                    "8px",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    minWidth:
-                                      0,
-
-                                    fontSize:
-                                      "12px",
-
-                                    color:
-                                      "#333",
-
-                                    fontWeight:
-                                      "600",
-
-                                    overflow:
-                                      "hidden",
-
-                                    textOverflow:
-                                      "ellipsis",
-
-                                    whiteSpace:
-                                      "nowrap",
-                                  }}
-                                >
-                                  ☐{" "}
-                                  {tache.titre ||
-                                    "Sans titre"}
-                                </div>
-
-                                {tache.dateEcheance && (
-                                  <span
-                                    style={{
-                                      color:
-                                        etat ===
-                                        "rouge"
-                                          ? "#a52d2d"
-                                          : etat ===
-                                            "jaune"
-                                          ? "#776512"
-                                          : "#777",
-
-                                      fontSize:
-                                        "9px",
-
-                                      whiteSpace:
-                                        "nowrap",
-                                    }}
-                                  >
-                                    📅{" "}
-                                    {formaterDate(
-                                      tache.dateEcheance
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div
-                                style={{
-                                  marginTop:
-                                    "2px",
-
-                                  color:
-                                    "#999",
-
-                                  fontSize:
-                                    "9px",
-
-                                  overflow:
-                                    "hidden",
-
-                                  textOverflow:
-                                    "ellipsis",
-
-                                  whiteSpace:
-                                    "nowrap",
-                                }}
-                              >
-                                {
-                                  tache.projet.nom
-                                }{" "}
-                                •{" "}
-                                {
-                                  avancement.terminees
-                                }
-                                /
-                                {
-                                  avancement.total
-                                }{" "}
-                                terminée
-                                {avancement.total !==
-                                1
-                                  ? "s"
-                                  : ""}
-                              </div>
-                            </button>
-                          );
-                        }
+                        rendreTacheApercu
                       )}
                     </div>
                   )
                 )}
 
                 {blocCompact(
+                  "importants",
                   "⭐ Importants",
                   importants.length,
                   importantsAffiches.length ===
@@ -1329,109 +2003,14 @@ function PageAccueil({
                       }}
                     >
                       {importantsAffiches.map(
-                        (
-                          important
-                        ) => (
-                          <button
-                            key={
-                              important.id
-                            }
-                            type="button"
-                            onClick={() =>
-                              ouvrirNote(
-                                important.note
-                              )
-                            }
-                            style={{
-                              width:
-                                "100%",
-
-                              padding:
-                                "7px 8px",
-
-                              border:
-                                "1px solid #eadb98",
-
-                              borderRadius:
-                                "7px",
-
-                              background:
-                                "#fffbed",
-
-                              textAlign:
-                                "left",
-
-                              cursor:
-                                "pointer",
-
-                              fontFamily:
-                                "inherit",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize:
-                                  "11px",
-
-                                color:
-                                  "#4b4326",
-
-                                overflow:
-                                  "hidden",
-
-                                textOverflow:
-                                  "ellipsis",
-
-                                whiteSpace:
-                                  "nowrap",
-                              }}
-                            >
-                              {raccourcir(
-                                important.contenu,
-                                75
-                              )}
-                            </div>
-
-                            <div
-                              style={{
-                                marginTop:
-                                  "2px",
-
-                                color:
-                                  "#9a8b52",
-
-                                fontSize:
-                                  "9px",
-
-                                overflow:
-                                  "hidden",
-
-                                textOverflow:
-                                  "ellipsis",
-
-                                whiteSpace:
-                                  "nowrap",
-                              }}
-                            >
-                              {
-                                important
-                                  .projet
-                                  .nom
-                              }{" "}
-                              •{" "}
-                              {
-                                important
-                                  .note
-                                  .titre
-                              }
-                            </div>
-                          </button>
-                        )
+                        rendreImportantApercu
                       )}
                     </div>
                   )
                 )}
               </div>
+
+              {rendreSectionApercuOuverte()}
 
               {/* PROJETS */}
 

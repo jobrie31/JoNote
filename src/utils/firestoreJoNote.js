@@ -318,6 +318,9 @@ export async function creerNote(
         dateCalendrier:
           "",
 
+        cachee:
+          false,
+
         createdAt:
           serverTimestamp(),
 
@@ -416,6 +419,34 @@ export async function modifierCalendrierNote(
     {
       dansCalendrier,
       dateCalendrier,
+
+      updatedAt:
+        serverTimestamp(),
+    }
+  );
+}
+
+export async function modifierNoteCachee(
+  projetId,
+  noteId,
+  cachee
+) {
+  const noteRef =
+    doc(
+      db,
+      "Applications",
+      "JoNote",
+      "projets",
+      projetId,
+      "notes",
+      noteId
+    );
+
+  await updateDoc(
+    noteRef,
+    {
+      cachee:
+        cachee === true,
 
       updatedAt:
         serverTimestamp(),

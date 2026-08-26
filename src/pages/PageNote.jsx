@@ -26,6 +26,7 @@ import {
   modifierOrdreBlocs,
   modifierTitreNote,
   modifierCalendrierNote,
+  modifierNoteCachee,
   supprimerNoteEtBlocs,
   supprimerBloc,
   extraireReferences,
@@ -56,6 +57,14 @@ function PageNote({
     setDateCalendrier,
   ] = useState(
     note?.dateCalendrier || ""
+  );
+
+  const [
+    cachee,
+    setCachee,
+  ] = useState(
+    note?.cachee ===
+      true
   );
 
   const [
@@ -113,6 +122,11 @@ function PageNote({
     setDateCalendrier(
       note?.dateCalendrier ||
         ""
+    );
+
+    setCachee(
+      note?.cachee ===
+        true
     );
   }, [note]);
 
@@ -239,6 +253,35 @@ function PageNote({
         600
       );
   };
+
+  const handleToggleCachee =
+    async () => {
+      const nouvelleValeur =
+        !cachee;
+
+      try {
+        await modifierNoteCachee(
+          projet.id,
+          note.id,
+          nouvelleValeur
+        );
+
+        setCachee(
+          nouvelleValeur
+        );
+
+        onRetour?.();
+      } catch (error) {
+        console.error(
+          "Erreur modification visibilité note :",
+          error
+        );
+
+        window.alert(
+          "Impossible de modifier la visibilité de la note."
+        );
+      }
+    };
 
   const handleSupprimerNote =
     async () => {
@@ -1131,40 +1174,90 @@ function PageNote({
             ← Retour aux notes
           </button>
 
-          <button
-            type="button"
-            onClick={
-              handleSupprimerNote
-            }
-            disabled={
-              suppressionEnCours
-            }
+          <div
             style={{
-              border:
-                "1px solid #d99",
+              display:
+                "flex",
 
-              color:
-                "#a22",
+              alignItems:
+                "center",
 
-              background:
-                "#fff5f5",
+              gap:
+                "8px",
 
-              borderRadius:
-                "7px",
-
-              padding:
-                "7px 10px",
-
-              cursor:
-                suppressionEnCours
-                  ? "wait"
-                  : "pointer",
+              flexWrap:
+                "wrap",
             }}
           >
-            {suppressionEnCours
-              ? "Suppression..."
-              : "🗑 Supprimer la note"}
-          </button>
+            <button
+              type="button"
+              onClick={
+                handleToggleCachee
+              }
+              style={{
+                border:
+                  "1px solid #cfd6dc",
+
+                color:
+                  cachee
+                    ? "#315f42"
+                    : "#555",
+
+                background:
+                  cachee
+                    ? "#f0faf3"
+                    : "#f7f8f9",
+
+                borderRadius:
+                  "7px",
+
+                padding:
+                  "7px 10px",
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              {cachee
+                ? "👁 Rendre visible"
+                : "🙈 Cacher la note"}
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                handleSupprimerNote
+              }
+              disabled={
+                suppressionEnCours
+              }
+              style={{
+                border:
+                  "1px solid #d99",
+
+                color:
+                  "#a22",
+
+                background:
+                  "#fff5f5",
+
+                borderRadius:
+                  "7px",
+
+                padding:
+                  "7px 10px",
+
+                cursor:
+                  suppressionEnCours
+                    ? "wait"
+                    : "pointer",
+              }}
+            >
+              {suppressionEnCours
+                ? "Suppression..."
+                : "🗑 Supprimer la note"}
+            </button>
+          </div>
         </div>
 
         <div

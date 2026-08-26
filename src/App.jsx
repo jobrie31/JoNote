@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import PageAccueil from "./pages/PageAccueil";
 import PageProjet from "./pages/PageProjet";
+import PageCalendrierGlobal from "./pages/PageCalendrierGlobal.jsx";
 
 function App() {
   const [
@@ -18,6 +19,11 @@ function App() {
     setNoteAOuvrir,
   ] = useState(null);
 
+  const [
+    calendrierGlobalOuvert,
+    setCalendrierGlobalOuvert,
+  ] = useState(false);
+
   const handleOuvrirProjet = (
     projet
   ) => {
@@ -27,6 +33,10 @@ function App() {
 
     setNoteAOuvrir(
       null
+    );
+
+    setCalendrierGlobalOuvert(
+      false
     );
   };
 
@@ -48,7 +58,26 @@ function App() {
     setNoteAOuvrir(
       note
     );
+
+    setCalendrierGlobalOuvert(
+      false
+    );
   };
+
+  const handleOuvrirCalendrierGlobal =
+    () => {
+      setProjetSelectionne(
+        null
+      );
+
+      setNoteAOuvrir(
+        null
+      );
+
+      setCalendrierGlobalOuvert(
+        true
+      );
+    };
 
   const handleRetourAccueil =
     () => {
@@ -58,6 +87,10 @@ function App() {
 
       setNoteAOuvrir(
         null
+      );
+
+      setCalendrierGlobalOuvert(
+        false
       );
     };
 
@@ -71,9 +104,16 @@ function App() {
         return;
       }
 
+      setCalendrierGlobalOuvert(
+        false
+      );
+
       if (tacheId) {
         setProjetSelectionne({
           ...projet,
+
+          jonoteOngletInitial:
+            "taches",
 
           jonoteTacheId:
             tacheId,
@@ -163,6 +203,18 @@ function App() {
                 handleRetourAccueil
               }
             />
+          ) : calendrierGlobalOuvert ? (
+            <PageCalendrierGlobal
+              onRetour={
+                handleRetourAccueil
+              }
+              onOuvrirProjet={
+                handleOuvrirProjet
+              }
+              onOuvrirNote={
+                handleOuvrirNote
+              }
+            />
           ) : (
             <PageAccueil
               onOuvrirProjet={
@@ -170,6 +222,9 @@ function App() {
               }
               onOuvrirNote={
                 handleOuvrirNote
+              }
+              onOuvrirCalendrierGlobal={
+                handleOuvrirCalendrierGlobal
               }
             />
           )}
