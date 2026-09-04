@@ -1,6 +1,5 @@
 {
   "firestore": {
-    "rules": "firestore.rule",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
