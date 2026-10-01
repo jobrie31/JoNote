@@ -1,17 +1,22 @@
 import {
-  collection,
   addDoc,
-  getDocs,
-  serverTimestamp,
-  query,
-  orderBy,
-  doc,
-  updateDoc,
+  collection,
   deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
+
+/* =========================================================
+   RÉFÉRENCES
+========================================================= */
 
 const projetsRef = collection(
   db,
@@ -20,57 +25,104 @@ const projetsRef = collection(
   "projets"
 );
 
-export function extraireReferences(
-  contenu = ""
+const notesRef = collection(
+  db,
+  "Applications",
+  "JoNote",
+  "notes"
+);
+
+/* =========================================================
+   PROJETS
+========================================================= */
+
+export function ecouterProjets(
+  callback
 ) {
-  const correspondances =
-    contenu.match(
-      /@[\p{L}\p{N}_-]+/gu
-    ) || [];
+  return onSnapshot(
+    projetsRef,
 
-  const uniques =
-    new Map();
+    (snapshot) => {
+      const projets =
+        snapshot.docs.map(
+          (document) => ({
+            id:
+              document.id,
 
-  correspondances.forEach(
-    (reference) => {
-      const nom =
-        reference
-          .slice(1)
-          .trim();
-
-      if (!nom) {
-        return;
-      }
-
-      const cle =
-        nom.toLocaleLowerCase(
-          "fr-CA"
+            ...document.data(),
+          })
         );
 
-      if (!uniques.has(cle)) {
-        uniques.set(
-          cle,
-          nom
-        );
-      }
+      projets.sort(
+        (a, b) =>
+          (a.nom || "").localeCompare(
+            b.nom || "",
+            "fr",
+            {
+              sensitivity:
+                "base",
+            }
+          )
+      );
+
+      callback(
+        projets
+      );
+    },
+
+    (error) => {
+      console.error(
+        "Erreur écoute projets :",
+        error
+      );
     }
-  );
-
-  return Array.from(
-    uniques.values()
   );
 }
 
-export async function creerProjet(
+export async function chargerProjets() {
+  const snapshot =
+    await getDocs(
+      projetsRef
+    );
+
+  const projets =
+    snapshot.docs.map(
+      (document) => ({
+        id:
+          document.id,
+
+        ...document.data(),
+      })
+    );
+
+  projets.sort(
+    (a, b) =>
+      (a.nom || "").localeCompare(
+        b.nom || "",
+        "fr",
+        {
+          sensitivity:
+            "base",
+        }
+      )
+  );
+
+  return projets;
+}
+
+export async function creerProjet({
   nom,
-  description = ""
-) {
+  description = "",
+}) {
   const docRef =
     await addDoc(
       projetsRef,
       {
-        nom,
-        description,
+        nom:
+          nom.trim(),
+
+        description:
+          description.trim(),
 
         createdAt:
           serverTimestamp(),
@@ -83,243 +135,272 @@ export async function creerProjet(
   return docRef.id;
 }
 
-export async function chargerProjets() {
-  const q = query(
-    projetsRef,
-    orderBy(
-      "createdAt",
-      "desc"
-    )
-  );
-
-  const snapshot =
-    await getDocs(q);
-
-  return snapshot.docs.map(
-    (document) => ({
-      id: document.id,
-      ...document.data(),
-    })
-  );
-}
-
-export async function creerCategorie(
+export async function modifierProjet(
   projetId,
-  nom,
-  parentId = null
+  donnees
 ) {
-  const categoriesRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "categories"
-    );
-
-  const docRef =
-    await addDoc(
-      categoriesRef,
-      {
-        nom,
-        parentId,
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function chargerCategories(
-  projetId
-) {
-  const categoriesRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "categories"
-    );
-
-  const q = query(
-    categoriesRef,
-    orderBy(
-      "createdAt",
-      "asc"
-    )
-  );
-
-  const snapshot =
-    await getDocs(q);
-
-  return snapshot.docs.map(
-    (document) => ({
-      id: document.id,
-      ...document.data(),
-    })
-  );
-}
-
-export async function modifierNomCategorie(
-  projetId,
-  categorieId,
-  nouveauNom
-) {
-  const categorieRef =
+  const projetRef =
     doc(
       db,
       "Applications",
       "JoNote",
       "projets",
-      projetId,
-      "categories",
-      categorieId
-    );
-
-  await updateDoc(
-    categorieRef,
-    {
-      nom: nouveauNom,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function deplacerCategorie(
-  projetId,
-  categorieId,
-  nouveauParentId = null
-) {
-  const categorieRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "categories",
-      categorieId
-    );
-
-  await updateDoc(
-    categorieRef,
-    {
-      parentId:
-        nouveauParentId,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function supprimerCategorieEtEnfants(
-  projetId,
-  categorieId
-) {
-  const categories =
-    await chargerCategories(
       projetId
     );
 
-  const idsASupprimer =
-    new Set();
+  await updateDoc(
+    projetRef,
+    {
+      ...donnees,
 
-  const trouverEnfants = (
-    parentId
-  ) => {
-    idsASupprimer.add(
-      parentId
-    );
-
-    categories.forEach(
-      (categorie) => {
-        if (
-          categorie.parentId ===
-          parentId
-        ) {
-          trouverEnfants(
-            categorie.id
-          );
-        }
-      }
-    );
-  };
-
-  trouverEnfants(
-    categorieId
+      updatedAt:
+        serverTimestamp(),
+    }
   );
-
-  for (
-    const id of
-    idsASupprimer
-  ) {
-    const categorieRef =
-      doc(
-        db,
-        "Applications",
-        "JoNote",
-        "projets",
-        projetId,
-        "categories",
-        id
-      );
-
-    await deleteDoc(
-      categorieRef
-    );
-  }
 }
 
-export async function creerNote(
-  projetId,
-  titre,
-  categorieIds = [],
-  importance = "normal"
+export async function supprimerProjet(
+  projetId
 ) {
-  const notesRef =
-    collection(
+  /*
+    On trouve toutes les notes
+    reliées au projet.
+  */
+
+  const notesProjetQuery =
+    query(
+      notesRef,
+
+      where(
+        "projetId",
+        "==",
+        projetId
+      )
+    );
+
+  const notesSnapshot =
+    await getDocs(
+      notesProjetQuery
+    );
+
+  /*
+    On supprime le projet
+    et toutes ses notes dans
+    un seul batch.
+  */
+
+  const batch =
+    writeBatch(db);
+
+  notesSnapshot.docs.forEach(
+    (
+      noteDocument
+    ) => {
+      batch.delete(
+        noteDocument.ref
+      );
+    }
+  );
+
+  const projetRef =
+    doc(
       db,
       "Applications",
       "JoNote",
       "projets",
-      projetId,
-      "notes"
+      projetId
     );
 
-  const references =
-    extraireReferences(
-      titre
+  batch.delete(
+    projetRef
+  );
+
+  await batch.commit();
+}
+
+/* =========================================================
+   NOTES D'UN PROJET
+========================================================= */
+
+export function ecouterNotesProjet(
+  projetId,
+  callback
+) {
+  const q =
+    query(
+      notesRef,
+
+      where(
+        "projetId",
+        "==",
+        projetId
+      )
     );
 
+  return onSnapshot(
+    q,
+
+    (snapshot) => {
+      const notes =
+        snapshot.docs.map(
+          (document) => ({
+            id:
+              document.id,
+
+            ...document.data(),
+          })
+        );
+
+      /*
+        Dans le projet :
+        on trie par la date
+        attribuée à la note.
+
+        Plus récente en premier.
+      */
+
+      notes.sort(
+        (a, b) => {
+          const dateA =
+            a.date || "";
+
+          const dateB =
+            b.date || "";
+
+          if (
+            dateA !==
+            dateB
+          ) {
+            return dateB.localeCompare(
+              dateA
+            );
+          }
+
+          /*
+            Si deux notes ont
+            la même date,
+            la plus récemment
+            créée apparaît avant.
+          */
+
+          const creationA =
+            a.createdAt
+              ?.toMillis?.() ||
+            0;
+
+          const creationB =
+            b.createdAt
+              ?.toMillis?.() ||
+            0;
+
+          return (
+            creationB -
+            creationA
+          );
+        }
+      );
+
+      callback(
+        notes
+      );
+    },
+
+    (error) => {
+      console.error(
+        "Erreur écoute notes du projet :",
+        error
+      );
+    }
+  );
+}
+
+/* =========================================================
+   TOUTES LES NOTES
+   POUR LA BANQUE À DROITE
+========================================================= */
+
+export function ecouterToutesNotes(
+  callback
+) {
+  return onSnapshot(
+    notesRef,
+
+    (snapshot) => {
+      const notes =
+        snapshot.docs.map(
+          (document) => ({
+            id:
+              document.id,
+
+            ...document.data(),
+          })
+        );
+
+      /*
+        Banque globale :
+        tri par DATE D'AJOUT,
+        donc createdAt.
+
+        La note créée le plus
+        récemment est toujours
+        en premier, peu importe
+        la date manuelle de la note.
+      */
+
+      notes.sort(
+        (a, b) => {
+          const creationA =
+            a.createdAt
+              ?.toMillis?.() ||
+            0;
+
+          const creationB =
+            b.createdAt
+              ?.toMillis?.() ||
+            0;
+
+          return (
+            creationB -
+            creationA
+          );
+        }
+      );
+
+      callback(
+        notes
+      );
+    },
+
+    (error) => {
+      console.error(
+        "Erreur écoute toutes les notes :",
+        error
+      );
+    }
+  );
+}
+
+/* =========================================================
+   CRÉER UNE NOTE
+========================================================= */
+
+export async function creerNote({
+  projetId,
+  titre = "",
+  contenu = "",
+  date,
+}) {
   const docRef =
     await addDoc(
       notesRef,
       {
+        projetId,
+
         titre,
-        categorieIds,
-        importance,
 
-        references,
+        contenu,
 
-        dansCalendrier:
-          false,
-
-        dateCalendrier:
-          "",
-
-        cachee:
-          false,
+        date,
 
         createdAt:
           serverTimestamp(),
@@ -332,84 +413,19 @@ export async function creerNote(
   return docRef.id;
 }
 
-export async function chargerNotes(
-  projetId
-) {
-  const notesRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes"
-    );
+/* =========================================================
+   MODIFIER UNE NOTE
+========================================================= */
 
-  const q = query(
-    notesRef,
-    orderBy(
-      "updatedAt",
-      "desc"
-    )
-  );
-
-  const snapshot =
-    await getDocs(q);
-
-  return snapshot.docs.map(
-    (document) => ({
-      id: document.id,
-      ...document.data(),
-    })
-  );
-}
-
-export async function modifierTitreNote(
-  projetId,
+export async function modifierNote(
   noteId,
-  titre
+  donnees
 ) {
   const noteRef =
     doc(
       db,
       "Applications",
       "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId
-    );
-
-  const references =
-    extraireReferences(
-      titre
-    );
-
-  await updateDoc(
-    noteRef,
-    {
-      titre,
-      references,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierCalendrierNote(
-  projetId,
-  noteId,
-  dansCalendrier,
-  dateCalendrier
-) {
-  const noteRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
       "notes",
       noteId
     );
@@ -417,8 +433,7 @@ export async function modifierCalendrierNote(
   await updateDoc(
     noteRef,
     {
-      dansCalendrier,
-      dateCalendrier,
+      ...donnees,
 
       updatedAt:
         serverTimestamp(),
@@ -426,758 +441,23 @@ export async function modifierCalendrierNote(
   );
 }
 
-export async function modifierNoteCachee(
-  projetId,
-  noteId,
-  cachee
-) {
-  const noteRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId
-    );
+/* =========================================================
+   SUPPRIMER UNE NOTE
+========================================================= */
 
-  await updateDoc(
-    noteRef,
-    {
-      cachee:
-        cachee === true,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function supprimerNoteEtBlocs(
-  projetId,
+export async function supprimerNote(
   noteId
 ) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const snapshot =
-    await getDocs(
-      blocsRef
-    );
-
-  const batch =
-    writeBatch(db);
-
-  snapshot.docs.forEach(
-    (blocDocument) => {
-      batch.delete(
-        blocDocument.ref
-      );
-    }
-  );
-
   const noteRef =
     doc(
       db,
       "Applications",
       "JoNote",
-      "projets",
-      projetId,
       "notes",
       noteId
     );
 
-  batch.delete(
+  await deleteDoc(
     noteRef
-  );
-
-  await batch.commit();
-}
-
-/* ========================= */
-/* TÂCHES INDÉPENDANTES      */
-/* ========================= */
-
-export async function creerTacheProjet(
-  projetId,
-  donnees
-) {
-  const tachesRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "taches"
-    );
-
-  const docRef =
-    await addDoc(
-      tachesRef,
-      {
-        titre:
-          donnees.titre ||
-          "",
-
-        elements:
-          Array.isArray(
-            donnees.elements
-          )
-            ? donnees.elements
-            : [],
-
-        dateEcheance:
-          donnees.dateEcheance ||
-          "",
-
-        joursJaune:
-          Number(
-            donnees.joursJaune ??
-              7
-          ),
-
-        joursRouge:
-          Number(
-            donnees.joursRouge ??
-              2
-          ),
-
-        complete:
-          false,
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function chargerTachesProjet(
-  projetId
-) {
-  const tachesRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "taches"
-    );
-
-  const q =
-    query(
-      tachesRef,
-      orderBy(
-        "updatedAt",
-        "desc"
-      )
-    );
-
-  const snapshot =
-    await getDocs(q);
-
-  return snapshot.docs.map(
-    (document) => ({
-      id:
-        document.id,
-
-      ...document.data(),
-    })
-  );
-}
-
-export async function modifierTacheProjet(
-  projetId,
-  tacheId,
-  donnees
-) {
-  const tacheRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "taches",
-      tacheId
-    );
-
-  await updateDoc(
-    tacheRef,
-    {
-      ...donnees,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function supprimerTacheProjet(
-  projetId,
-  tacheId
-) {
-  const tacheRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "taches",
-      tacheId
-    );
-
-  await deleteDoc(
-    tacheRef
-  );
-}
-
-/* ========================= */
-/* BLOCS DE NOTES            */
-/* ========================= */
-
-export async function creerBlocTexte(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const docRef =
-    await addDoc(
-      blocsRef,
-      {
-        type:
-          "texte",
-
-        contenu:
-          "",
-
-        important:
-          false,
-
-        references:
-          [],
-
-        ordre:
-          Date.now(),
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function creerBlocChecklist(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const docRef =
-    await addDoc(
-      blocsRef,
-      {
-        type:
-          "checklist",
-
-        elements: [
-          {
-            id:
-              crypto.randomUUID(),
-
-            texte:
-              "",
-
-            complete:
-              false,
-          },
-        ],
-
-        ordre:
-          Date.now(),
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function creerBlocManuscrit(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const docRef =
-    await addDoc(
-      blocsRef,
-      {
-        type:
-          "manuscrit",
-
-        traits:
-          [],
-
-        hauteur:
-          520,
-
-        espacementLignes:
-          32,
-
-        typePapier:
-          "ligne",
-
-        epaisseurStylo:
-          2.2,
-
-        couleurStylo:
-          "#111111",
-
-        ordre:
-          Date.now(),
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function creerBlocLien(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const docRef =
-    await addDoc(
-      blocsRef,
-      {
-        type:
-          "lien",
-
-        titre:
-          "",
-
-        url:
-          "",
-
-        description:
-          "",
-
-        ordre:
-          Date.now(),
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function creerBlocImportant(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const docRef =
-    await addDoc(
-      blocsRef,
-      {
-        type:
-          "important",
-
-        contenu:
-          "",
-
-        niveau:
-          "important",
-
-        ordre:
-          Date.now(),
-
-        createdAt:
-          serverTimestamp(),
-
-        updatedAt:
-          serverTimestamp(),
-      }
-    );
-
-  return docRef.id;
-}
-
-export async function chargerBlocs(
-  projetId,
-  noteId
-) {
-  const blocsRef =
-    collection(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs"
-    );
-
-  const q =
-    query(
-      blocsRef,
-      orderBy(
-        "ordre",
-        "asc"
-      )
-    );
-
-  const snapshot =
-    await getDocs(q);
-
-  return snapshot.docs.map(
-    (document) => ({
-      id:
-        document.id,
-
-      ...document.data(),
-    })
-  );
-}
-
-export async function modifierBlocTexte(
-  projetId,
-  noteId,
-  blocId,
-  contenu,
-  important = false
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  const references =
-    extraireReferences(
-      contenu
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      contenu,
-      important,
-      references,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierImportanceBlocTexte(
-  projetId,
-  noteId,
-  blocId,
-  important
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      important,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierBlocChecklist(
-  projetId,
-  noteId,
-  blocId,
-  elements
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      elements,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierBlocManuscrit(
-  projetId,
-  noteId,
-  blocId,
-  donnees
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      ...donnees,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierBlocLien(
-  projetId,
-  noteId,
-  blocId,
-  donnees
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      ...donnees,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierBlocImportant(
-  projetId,
-  noteId,
-  blocId,
-  donnees
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await updateDoc(
-    blocRef,
-    {
-      ...donnees,
-
-      updatedAt:
-        serverTimestamp(),
-    }
-  );
-}
-
-export async function modifierOrdreBlocs(
-  projetId,
-  noteId,
-  blocs
-) {
-  const batch =
-    writeBatch(db);
-
-  blocs.forEach(
-    (bloc, index) => {
-      const blocRef =
-        doc(
-          db,
-          "Applications",
-          "JoNote",
-          "projets",
-          projetId,
-          "notes",
-          noteId,
-          "blocs",
-          bloc.id
-        );
-
-      batch.update(
-        blocRef,
-        {
-          ordre:
-            (index + 1) *
-            1000,
-
-          updatedAt:
-            serverTimestamp(),
-        }
-      );
-    }
-  );
-
-  await batch.commit();
-}
-
-export async function supprimerBloc(
-  projetId,
-  noteId,
-  blocId
-) {
-  const blocRef =
-    doc(
-      db,
-      "Applications",
-      "JoNote",
-      "projets",
-      projetId,
-      "notes",
-      noteId,
-      "blocs",
-      blocId
-    );
-
-  await deleteDoc(
-    blocRef
   );
 }

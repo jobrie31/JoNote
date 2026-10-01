@@ -4,9 +4,9 @@ import {
 
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+
 import PageAccueil from "./pages/PageAccueil";
 import PageProjet from "./pages/PageProjet";
-import PageCalendrierGlobal from "./pages/PageCalendrierGlobal.jsx";
 
 function App() {
   const [
@@ -14,127 +14,17 @@ function App() {
     setProjetSelectionne,
   ] = useState(null);
 
-  const [
-    noteAOuvrir,
-    setNoteAOuvrir,
-  ] = useState(null);
-
-  const [
-    calendrierGlobalOuvert,
-    setCalendrierGlobalOuvert,
-  ] = useState(false);
-
-  const handleOuvrirProjet = (
-    projet
-  ) => {
-    setProjetSelectionne(
-      projet
-    );
-
-    setNoteAOuvrir(
-      null
-    );
-
-    setCalendrierGlobalOuvert(
-      false
-    );
-  };
-
-  const handleOuvrirNote = (
-    projet,
-    note
-  ) => {
-    if (
-      !projet ||
-      !note
-    ) {
-      return;
-    }
-
-    setProjetSelectionne(
-      projet
-    );
-
-    setNoteAOuvrir(
-      note
-    );
-
-    setCalendrierGlobalOuvert(
-      false
-    );
-  };
-
-  const handleOuvrirCalendrierGlobal =
-    () => {
+  const handleOuvrirProjet =
+    (projet) => {
       setProjetSelectionne(
-        null
-      );
-
-      setNoteAOuvrir(
-        null
-      );
-
-      setCalendrierGlobalOuvert(
-        true
+        projet
       );
     };
 
-  const handleRetourAccueil =
+  const handleAccueil =
     () => {
       setProjetSelectionne(
         null
-      );
-
-      setNoteAOuvrir(
-        null
-      );
-
-      setCalendrierGlobalOuvert(
-        false
-      );
-    };
-
-  const handleOuvrirResultatRecherche =
-    ({
-      projet,
-      note = null,
-      tacheId = null,
-    }) => {
-      if (!projet) {
-        return;
-      }
-
-      setCalendrierGlobalOuvert(
-        false
-      );
-
-      if (tacheId) {
-        setProjetSelectionne({
-          ...projet,
-
-          jonoteOngletInitial:
-            "taches",
-
-          jonoteTacheId:
-            tacheId,
-        });
-
-        setNoteAOuvrir(
-          null
-        );
-
-        return;
-      }
-
-      setProjetSelectionne({
-        ...projet,
-
-        jonoteTacheId:
-          null,
-      });
-
-      setNoteAOuvrir(
-        note || null
       );
     };
 
@@ -146,34 +36,41 @@ function App() {
 
         minHeight:
           "100vh",
+
+        background:
+          "#f7f8fa",
+
+        fontFamily:
+          'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
-      <Sidebar />
+      <Sidebar
+        onAccueil={
+          handleAccueil
+        }
+      />
 
       <div
         style={{
           flex:
             1,
 
+          minWidth:
+            0,
+
           display:
             "flex",
 
           flexDirection:
             "column",
-
-          minWidth:
-            0,
         }}
       >
         <Topbar
           projetActuel={
             projetSelectionne
           }
-          onRetourAccueil={
-            handleRetourAccueil
-          }
-          onOuvrirResultat={
-            handleOuvrirResultatRecherche
+          onAccueil={
+            handleAccueil
           }
         />
 
@@ -191,40 +88,14 @@ function App() {
               projet={
                 projetSelectionne
               }
-              noteAOuvrir={
-                noteAOuvrir
-              }
-              onNoteOuverte={() =>
-                setNoteAOuvrir(
-                  null
-                )
-              }
               onRetour={
-                handleRetourAccueil
-              }
-            />
-          ) : calendrierGlobalOuvert ? (
-            <PageCalendrierGlobal
-              onRetour={
-                handleRetourAccueil
-              }
-              onOuvrirProjet={
-                handleOuvrirProjet
-              }
-              onOuvrirNote={
-                handleOuvrirNote
+                handleAccueil
               }
             />
           ) : (
             <PageAccueil
               onOuvrirProjet={
                 handleOuvrirProjet
-              }
-              onOuvrirNote={
-                handleOuvrirNote
-              }
-              onOuvrirCalendrierGlobal={
-                handleOuvrirCalendrierGlobal
               }
             />
           )}

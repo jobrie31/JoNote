@@ -3,438 +3,460 @@ import {
   useState,
 } from "react";
 
-import PageVueEnsemble from "./PageVueEnsemble";
-import PageImportant from "./PageImportant";
-import PageTaches from "./PageTaches";
-import PageCalendrier from "./PageCalendrier";
-import PageReferences from "./PageReferences";
+import BlocNote from "../components/BlocNote";
+import BanqueNotes from "../components/BanqueNotes";
+
+import {
+  creerNote,
+  ecouterNotesProjet,
+  modifierNote,
+  supprimerNote,
+} from "../utils/firestoreJoNote";
 
 function PageProjet({
   projet,
   onRetour,
-  noteAOuvrir = null,
-  onNoteOuverte,
 }) {
   const [
-    ongletActif,
-    setOngletActif,
-  ] = useState(
-    projet?.jonoteOngletInitial ||
-      "vue-ensemble"
-  );
+    notes,
+    setNotes,
+  ] = useState([]);
 
   const [
-    tacheAOuvrirId,
-    setTacheAOuvrirId,
-  ] = useState(
-    projet?.jonoteTacheId ||
-      null
-  );
+    creationEnCours,
+    setCreationEnCours,
+  ] = useState(false);
+
+  const [
+    erreur,
+    setErreur,
+  ] = useState("");
 
   useEffect(() => {
-    if (noteAOuvrir) {
-      setOngletActif(
-        "vue-ensemble"
-      );
+    if (!projet?.id) {
+      return undefined;
     }
-  }, [
-    noteAOuvrir?.id,
-  ]);
 
-  useEffect(() => {
-    if (
-      projet?.jonoteOngletInitial ===
-      "taches"
-    ) {
-      setOngletActif(
-        "taches"
+    setErreur("");
+
+    const unsubscribe =
+      ecouterNotesProjet(
+        projet.id,
+
+        (
+          nouvellesNotes
+        ) => {
+          setNotes(
+            nouvellesNotes
+          );
+        }
       );
 
-      setTacheAOuvrirId(
-        projet?.jonoteTacheId ||
-          null
-      );
-    }
-  }, [
-    projet?.id,
-    projet?.jonoteOngletInitial,
-    projet?.jonoteTacheId,
-  ]);
+    return () => {
+      unsubscribe?.();
+    };
+  }, [projet?.id]);
 
-  const ouvrirTache = (
-    tacheId
-  ) => {
-    setTacheAOuvrirId(
-      tacheId
-    );
-
-    setOngletActif(
-      "taches"
-    );
-  };
-
-  const onglets = [
-    {
-      id:
-        "vue-ensemble",
-
-      nom:
-        "Vue d'ensemble",
-    },
-
-    {
-      id:
-        "calendrier",
-
-      nom:
-        "Calendrier",
-    },
-
-    {
-      id:
-        "references",
-
-      nom:
-        "Références",
-    },
-
-    {
-      id:
-        "important",
-
-      nom:
-        "Important",
-    },
-
-    {
-      id:
-        "taches",
-
-      nom:
-        "Tâches",
-    },
-
-    {
-      id:
-        "fichiers",
-
-      nom:
-        "Fichiers",
-    },
-  ];
-
-  const afficherContenu =
+  const obtenirDateAujourdhui =
     () => {
-      if (
-        ongletActif ===
-        "vue-ensemble"
-      ) {
-        return (
-          <PageVueEnsemble
-            projet={projet}
-            noteAOuvrir={
-              noteAOuvrir
-            }
-            onNoteOuverte={
-              onNoteOuverte
-            }
-            onOuvrirTache={
-              ouvrirTache
-            }
-          />
+      const date =
+        new Date();
+
+      const annee =
+        date.getFullYear();
+
+      const mois =
+        String(
+          date.getMonth() +
+            1
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const jour =
+        String(
+          date.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
+
+      return `${annee}-${mois}-${jour}`;
+    };
+
+  const handleAjouterNote =
+    async () => {
+      try {
+        setCreationEnCours(
+          true
+        );
+
+        setErreur("");
+
+        await creerNote({
+          projetId:
+            projet.id,
+
+          titre:
+            "",
+
+          contenu:
+            "",
+
+          date:
+            obtenirDateAujourdhui(),
+        });
+      } catch (error) {
+        console.error(
+          "Erreur création note :",
+          error
+        );
+
+        setErreur(
+          "Impossible de créer la note."
+        );
+      } finally {
+        setCreationEnCours(
+          false
         );
       }
+    };
 
-      if (
-        ongletActif ===
-        "calendrier"
-      ) {
-        return (
-          <PageCalendrier
-            projet={projet}
-          />
+  const handleModifierNote =
+    async (
+      noteId,
+      donnees
+    ) => {
+      await modifierNote(
+        noteId,
+        donnees
+      );
+    };
+
+  const handleSupprimerNote =
+    async (
+      noteId
+    ) => {
+      try {
+        await supprimerNote(
+          noteId
+        );
+      } catch (error) {
+        console.error(
+          "Erreur suppression note :",
+          error
+        );
+
+        setErreur(
+          "Impossible de supprimer la note."
         );
       }
-
-      if (
-        ongletActif ===
-        "references"
-      ) {
-        return (
-          <PageReferences
-            projet={projet}
-          />
-        );
-      }
-
-      if (
-        ongletActif ===
-        "important"
-      ) {
-        return (
-          <PageImportant
-            projet={projet}
-          />
-        );
-      }
-
-      if (
-        ongletActif ===
-        "taches"
-      ) {
-        return (
-          <PageTaches
-            projet={projet}
-            tacheAOuvrirId={
-              tacheAOuvrirId
-            }
-          />
-        );
-      }
-
-      if (
-        ongletActif ===
-        "fichiers"
-      ) {
-        return (
-          <div
-            style={{
-              padding:
-                "32px",
-            }}
-          >
-            <div
-              style={{
-                maxWidth:
-                  "1000px",
-
-                margin:
-                  "0 auto",
-              }}
-            >
-              <h2>
-                Fichiers
-              </h2>
-
-              <p
-                style={{
-                  color:
-                    "#777",
-                }}
-              >
-                Les fichiers du
-                projet seront
-                affichés ici.
-              </p>
-            </div>
-          </div>
-        );
-      }
-
-      return null;
     };
 
   return (
     <div
       style={{
+        display:
+          "flex",
+
         minHeight:
           "100%",
 
         background:
-          "#fff",
+          "#f7f8fa",
       }}
     >
+      {/* =========================
+          CONTENU DU PROJET
+      ========================= */}
+
       <div
         style={{
-          padding:
-            "24px 32px 0",
+          flex:
+            1,
 
-          borderBottom:
-            "1px solid #ddd",
+          minWidth:
+            0,
         }}
       >
-        <button
-          type="button"
-          onClick={
-            onRetour
-          }
-          style={{
-            marginBottom:
-              "18px",
-          }}
-        >
-          ← Tous les projets
-        </button>
-
         <div
           style={{
-            marginBottom:
-              "22px",
+            maxWidth:
+              "1000px",
+
+            margin:
+              "0 auto",
+
+            padding:
+              "32px",
           }}
         >
-          <h1
+          <div
             style={{
-              margin:
-                "0 0 6px",
+              display:
+                "flex",
 
-              fontSize:
+              alignItems:
+                "flex-start",
+
+              justifyContent:
+                "space-between",
+
+              gap:
+                "20px",
+
+              marginBottom:
                 "30px",
+
+              flexWrap:
+                "wrap",
             }}
           >
-            {projet.nom}
-          </h1>
+            <div>
+              <button
+                type="button"
+                onClick={
+                  onRetour
+                }
+                style={{
+                  border:
+                    "none",
 
-          {projet.description && (
-            <p
-              style={{
-                margin:
-                  0,
+                  background:
+                    "transparent",
 
-                color:
-                  "#777",
-              }}
-            >
-              {
-                projet.description
-              }
-            </p>
-          )}
-        </div>
+                  padding:
+                    0,
 
-        <div
-          style={{
-            display:
-              "flex",
+                  marginBottom:
+                    "14px",
 
-            gap:
-              "4px",
+                  cursor:
+                    "pointer",
 
-            overflowX:
-              "auto",
-          }}
-        >
-          {onglets.map(
-            (onglet) => {
-              const estActif =
-                ongletActif ===
-                onglet.id;
+                  color:
+                    "#6b7280",
 
-              let icone =
-                "";
+                  fontFamily:
+                    "inherit",
 
-              if (
-                onglet.id ===
-                "vue-ensemble"
-              ) {
-                icone =
-                  "📝 ";
-              }
+                  fontSize:
+                    "14px",
+                }}
+              >
+                ← Tous les projets
+              </button>
 
-              if (
-                onglet.id ===
-                "calendrier"
-              ) {
-                icone =
-                  "📅 ";
-              }
+              <h1
+                style={{
+                  margin:
+                    "0 0 6px",
 
-              if (
-                onglet.id ===
-                "references"
-              ) {
-                icone =
-                  "@ ";
-              }
+                  fontSize:
+                    "30px",
 
-              if (
-                onglet.id ===
-                "important"
-              ) {
-                icone =
-                  "⭐ ";
-              }
+                  color:
+                    "#111827",
+                }}
+              >
+                {projet.nom}
+              </h1>
 
-              if (
-                onglet.id ===
-                "taches"
-              ) {
-                icone =
-                  "☑️ ";
-              }
-
-              if (
-                onglet.id ===
-                "fichiers"
-              ) {
-                icone =
-                  "📎 ";
-              }
-
-              return (
-                <button
-                  key={
-                    onglet.id
-                  }
-                  type="button"
-                  onClick={() => {
-                    setOngletActif(
-                      onglet.id
-                    );
-
-                    if (
-                      onglet.id !==
-                      "taches"
-                    ) {
-                      setTacheAOuvrirId(
-                        null
-                      );
-                    }
-                  }}
+              {projet.description && (
+                <p
                   style={{
-                    border:
-                      "none",
-
-                    borderBottom:
-                      estActif
-                        ? "3px solid #222"
-                        : "3px solid transparent",
-
-                    background:
-                      "transparent",
-
-                    padding:
-                      "12px 16px",
-
-                    fontWeight:
-                      estActif
-                        ? "700"
-                        : "500",
+                    margin:
+                      0,
 
                     color:
-                      estActif
-                        ? "#222"
-                        : "#777",
-
-                    cursor:
-                      "pointer",
-
-                    whiteSpace:
-                      "nowrap",
-
-                    fontFamily:
-                      "inherit",
+                      "#6b7280",
                   }}
                 >
-                  {icone}
-                  {onglet.nom}
-                </button>
-              );
-            }
+                  {
+                    projet.description
+                  }
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                handleAjouterNote
+              }
+              disabled={
+                creationEnCours
+              }
+              style={{
+                border:
+                  "none",
+
+                borderRadius:
+                  "10px",
+
+                padding:
+                  "11px 18px",
+
+                background:
+                  "#111827",
+
+                color:
+                  "#ffffff",
+
+                fontWeight:
+                  "600",
+
+                cursor:
+                  creationEnCours
+                    ? "default"
+                    : "pointer",
+
+                fontFamily:
+                  "inherit",
+
+                fontSize:
+                  "14px",
+
+                opacity:
+                  creationEnCours
+                    ? 0.6
+                    : 1,
+              }}
+            >
+              {creationEnCours
+                ? "Création..."
+                : "+ Nouvelle note"}
+            </button>
+          </div>
+
+          {erreur && (
+            <div
+              style={{
+                padding:
+                  "12px 14px",
+
+                borderRadius:
+                  "10px",
+
+                background:
+                  "#fff1f1",
+
+                color:
+                  "#b42318",
+
+                marginBottom:
+                  "18px",
+              }}
+            >
+              {erreur}
+            </div>
+          )}
+
+          {notes.length ===
+          0 ? (
+            <div
+              style={{
+                padding:
+                  "70px 20px",
+
+                textAlign:
+                  "center",
+
+                border:
+                  "1px dashed #d1d5db",
+
+                borderRadius:
+                  "14px",
+
+                background:
+                  "#ffffff",
+              }}
+            >
+              <div
+                style={{
+                  fontSize:
+                    "36px",
+
+                  marginBottom:
+                    "10px",
+                }}
+              >
+                📝
+              </div>
+
+              <h3
+                style={{
+                  margin:
+                    "0 0 6px",
+                }}
+              >
+                Aucune note
+              </h3>
+
+              <p
+                style={{
+                  margin:
+                    "0 0 18px",
+
+                  color:
+                    "#6b7280",
+                }}
+              >
+                Ajoute ta première
+                note pour ce projet.
+              </p>
+
+              <button
+                type="button"
+                onClick={
+                  handleAjouterNote
+                }
+              >
+                + Nouvelle note
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                display:
+                  "flex",
+
+                flexDirection:
+                  "column",
+
+                gap:
+                  "14px",
+              }}
+            >
+              {notes.map(
+                (note) => (
+                  <BlocNote
+                    key={
+                      note.id
+                    }
+                    note={
+                      note
+                    }
+                    onModifier={
+                      handleModifierNote
+                    }
+                    onSupprimer={
+                      handleSupprimerNote
+                    }
+                  />
+                )
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {afficherContenu()}
+      {/* =========================
+          BANQUE DE NOTES
+      ========================= */}
+
+      <BanqueNotes />
     </div>
   );
 }

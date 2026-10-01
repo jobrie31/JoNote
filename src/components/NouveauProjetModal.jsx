@@ -1,71 +1,161 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 function NouveauProjetModal({
   ouvert,
   onFermer,
   onCreer,
 }) {
-  const [nom, setNom] = useState("");
-  const [description, setDescription] = useState("");
+  const [
+    nom,
+    setNom,
+  ] = useState("");
+
+  const [
+    description,
+    setDescription,
+  ] = useState("");
+
+  const [
+    creationEnCours,
+    setCreationEnCours,
+  ] = useState(false);
+
+  useEffect(() => {
+    if (ouvert) {
+      setNom("");
+      setDescription("");
+      setCreationEnCours(
+        false
+      );
+    }
+  }, [ouvert]);
 
   if (!ouvert) {
     return null;
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit =
+    async (e) => {
+      e.preventDefault();
 
-    const nomNettoye = nom.trim();
+      const nomNettoye =
+        nom.trim();
 
-    if (!nomNettoye) {
-      return;
-    }
+      if (!nomNettoye) {
+        return;
+      }
 
-    await onCreer({
-      nom: nomNettoye,
-      description: description.trim(),
-    });
+      try {
+        setCreationEnCours(
+          true
+        );
 
-    setNom("");
-    setDescription("");
-    onFermer();
-  };
+        await onCreer({
+          nom:
+            nomNettoye,
+
+          description:
+            description.trim(),
+        });
+
+        onFermer();
+      } catch (error) {
+        console.error(
+          "Erreur création projet :",
+          error
+        );
+
+        setCreationEnCours(
+          false
+        );
+      }
+    };
 
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0, 0, 0, 0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
+        position:
+          "fixed",
+
+        inset:
+          0,
+
+        display:
+          "flex",
+
+        alignItems:
+          "center",
+
+        justifyContent:
+          "center",
+
+        background:
+          "rgba(17,24,39,0.35)",
+
+        zIndex:
+          2000,
+
+        padding:
+          "20px",
       }}
-      onMouseDown={onFermer}
+      onMouseDown={
+        onFermer
+      }
     >
       <div
         style={{
-          width: "420px",
-          maxWidth: "calc(100vw - 40px)",
-          background: "white",
-          borderRadius: "14px",
-          padding: "24px",
-          boxSizing: "border-box",
+          width:
+            "440px",
+
+          maxWidth:
+            "100%",
+
+          background:
+            "#ffffff",
+
+          borderRadius:
+            "16px",
+
+          padding:
+            "24px",
+
+          boxSizing:
+            "border-box",
+
+          boxShadow:
+            "0 24px 70px rgba(0,0,0,0.18)",
         }}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={(
+          e
+        ) =>
+          e.stopPropagation()
+        }
       >
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "20px",
+            display:
+              "flex",
+
+            justifyContent:
+              "space-between",
+
+            alignItems:
+              "center",
+
+            marginBottom:
+              "22px",
           }}
         >
           <h2
             style={{
-              margin: 0,
+              margin:
+                0,
+
+              fontSize:
+                "22px",
             }}
           >
             Nouveau projet
@@ -73,22 +163,48 @@ function NouveauProjetModal({
 
           <button
             type="button"
-            onClick={onFermer}
+            onClick={
+              onFermer
+            }
+            style={{
+              border:
+                "none",
+
+              background:
+                "transparent",
+
+              fontSize:
+                "24px",
+
+              cursor:
+                "pointer",
+            }}
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={
+            handleSubmit
+          }
+        >
           <div
             style={{
-              marginBottom: "16px",
+              marginBottom:
+                "16px",
             }}
           >
             <label
               style={{
-                display: "block",
-                marginBottom: "6px",
+                display:
+                  "block",
+
+                marginBottom:
+                  "6px",
+
+                fontWeight:
+                  "600",
               }}
             >
               Nom du projet
@@ -97,59 +213,160 @@ function NouveauProjetModal({
             <input
               type="text"
               value={nom}
-              onChange={(e) => setNom(e.target.value)}
+              onChange={(
+                e
+              ) =>
+                setNom(
+                  e.target
+                    .value
+                )
+              }
               autoFocus
+              placeholder="Ex. Costco Lévis"
               style={{
-                width: "100%",
-                padding: "10px",
-                boxSizing: "border-box",
+                width:
+                  "100%",
+
+                boxSizing:
+                  "border-box",
+
+                border:
+                  "1px solid #d1d5db",
+
+                borderRadius:
+                  "9px",
+
+                padding:
+                  "11px 12px",
+
+                fontFamily:
+                  "inherit",
+
+                fontSize:
+                  "15px",
               }}
             />
           </div>
 
           <div
             style={{
-              marginBottom: "20px",
+              marginBottom:
+                "24px",
             }}
           >
             <label
               style={{
-                display: "block",
-                marginBottom: "6px",
+                display:
+                  "block",
+
+                marginBottom:
+                  "6px",
+
+                fontWeight:
+                  "600",
               }}
             >
               Description
             </label>
 
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              value={
+                description
+              }
+              onChange={(
+                e
+              ) =>
+                setDescription(
+                  e.target
+                    .value
+                )
+              }
+              placeholder="Facultatif"
+              rows={3}
               style={{
-                width: "100%",
-                padding: "10px",
-                boxSizing: "border-box",
-                resize: "vertical",
+                width:
+                  "100%",
+
+                boxSizing:
+                  "border-box",
+
+                border:
+                  "1px solid #d1d5db",
+
+                borderRadius:
+                  "9px",
+
+                padding:
+                  "11px 12px",
+
+                resize:
+                  "vertical",
+
+                fontFamily:
+                  "inherit",
+
+                fontSize:
+                  "15px",
               }}
             />
           </div>
 
           <div
             style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "10px",
+              display:
+                "flex",
+
+              justifyContent:
+                "flex-end",
+
+              gap:
+                "10px",
             }}
           >
             <button
               type="button"
-              onClick={onFermer}
+              onClick={
+                onFermer
+              }
+              disabled={
+                creationEnCours
+              }
             >
               Annuler
             </button>
 
-            <button type="submit">
-              Créer le projet
+            <button
+              type="submit"
+              disabled={
+                creationEnCours ||
+                !nom.trim()
+              }
+              style={{
+                background:
+                  "#111827",
+
+                color:
+                  "#ffffff",
+
+                border:
+                  "none",
+
+                borderRadius:
+                  "9px",
+
+                padding:
+                  "10px 16px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  "600",
+              }}
+            >
+              {creationEnCours
+                ? "Création..."
+                : "Créer"}
             </button>
           </div>
         </form>
